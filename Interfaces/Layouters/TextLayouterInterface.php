@@ -1,5 +1,5 @@
 <?php
-namespace exface\Core\Interfaces\Layouts;
+namespace exface\Core\Interfaces\Layouters;
 
 use exface\Core\Interfaces\iCanBeConvertedToString;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
@@ -31,7 +31,7 @@ use exface\Core\Interfaces\DataSheets\DataSheetInterface;
  * @author Andrej Kabachnik
  *
  */
-interface TextLayoutInterface extends LayoutInterface, iCanBeConvertedToString
+interface TextLayouterInterface extends LayouterInterface, iCanBeConvertedToString
 {
     /**
      * Returns the filled out layout as a string.
@@ -51,7 +51,7 @@ interface TextLayoutInterface extends LayoutInterface, iCanBeConvertedToString
     
     public function getHeaderLayout();
     
-    public function setHeaderLayout(TextLayoutInterface $layout);
+    public function setHeaderLayout(TextLayouterInterface $layout);
     
     public function setHeaderLayoutAlias($alias_with_namespace);
     
@@ -63,7 +63,7 @@ interface TextLayoutInterface extends LayoutInterface, iCanBeConvertedToString
     
     public function setFooterLayoutAlias($alias_with_namespace);
     
-    public function setFooterLayout(TextLayoutInterface $layout);
+    public function setFooterLayout(TextLayouterInterface $layout);
     
     public function getFooterObjectRelationPath();
     

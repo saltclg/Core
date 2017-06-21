@@ -1,5 +1,5 @@
 <?php
-namespace exface\Core\Interfaces\Layouts;
+namespace exface\Core\Interfaces\Layouters;
 
 /**
  * Paged layouts should be used to generated page-based documents like DOCX.
@@ -11,7 +11,7 @@ namespace exface\Core\Interfaces\Layouts;
  * @author Andrej Kabachnik
  *
  */
-interface PagedTextLayoutInterface extends TextLayoutInterface
+interface PagedTextLayouterInterface extends TextLayouterInterface
 {    
     /**
      * @return boolean
@@ -21,11 +21,11 @@ interface PagedTextLayoutInterface extends TextLayoutInterface
     /**
      * 
      * @param boolean $true_or_false
-     * @return PagedTextLayoutInterface
+     * @return PagedTextLayouterInterface
      */
     public function setPageNumbering($true_or_false);
     
     public function getTitlePageLayout();
     
-    public function setTitlePageLayout(LayoutInterface $layout);
+    public function setTitlePageLayout(LayouterInterface $layout);
 }

@@ -1,5 +1,5 @@
 <?php
-namespace exface\Core\Interfaces\Layouts;
+namespace exface\Core\Interfaces\Layouters;
 
 use exface\Core\Interfaces\ExfaceClassInterface;
 use exface\Core\Interfaces\iCanBeConvertedToUxon;
@@ -9,7 +9,7 @@ use exface\Core\Interfaces\DataSheets\DataSheetInterface;
 use exface\Core\Interfaces\AliasInterface;
 use exface\Core\Interfaces\AppInterface;
 
-interface LayoutInterface extends ExfaceClassInterface, iCanBeConvertedToUxon, iUseMetaObject, AliasInterface
+interface LayouterInterface extends ExfaceClassInterface, iCanBeConvertedToUxon, iUseMetaObject, AliasInterface
 {
     /**
      * @return string
@@ -19,7 +19,7 @@ interface LayoutInterface extends ExfaceClassInterface, iCanBeConvertedToUxon, i
     /**
      *
      * @param unknown $string
-     * @return LayoutInterface
+     * @return LayouterInterface
      */
     public function setName($string);
     
@@ -31,14 +31,14 @@ interface LayoutInterface extends ExfaceClassInterface, iCanBeConvertedToUxon, i
     /**
      *
      * @param unknown $string
-     * @return LayoutInterface
+     * @return LayouterInterface
      */
     public function setDescriptions($string);
 
     /**
      * 
      * @param Object $object
-     * @return LayoutInterface
+     * @return LayouterInterface
      */
     public function setMetaObject(Object $object);
     
@@ -46,7 +46,7 @@ interface LayoutInterface extends ExfaceClassInterface, iCanBeConvertedToUxon, i
      * Fills the layout with the given data sheet
      * 
      * @param DataSheetInterface $data_sheet
-     * @return LayoutInterface
+     * @return LayouterInterface
      */
     public function fill(DataSheetInterface $dataSheet);
     

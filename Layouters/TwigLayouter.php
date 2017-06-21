@@ -1,8 +1,8 @@
 <?php
 
-namespace exface\Core\Layouts;
+namespace exface\Core\Layouters;
 
-use exface\Core\Interfaces\Layouts\TextLayoutInterface;
+use exface\Core\Interfaces\Layouters\TextLayouterInterface;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
 
 /**
@@ -54,7 +54,7 @@ use exface\Core\Interfaces\DataSheets\DataSheetInterface;
  * @author Andrej Kabachnik
  *
  */
-class TwigLayout implements TextLayoutInterface {
+class TwigLayouter extends AbstractLayouter implements TextLayouterInterface {
     
     public function print(DataSheetInterface $dataSheet = null){
         
@@ -72,7 +72,7 @@ class TwigLayout implements TextLayoutInterface {
         
     }
     
-    public function setHeaderLayout(TextLayoutInterface $layout){
+    public function setHeaderLayout(TextLayouterInterface $layout){
         
     }
     
@@ -96,7 +96,7 @@ class TwigLayout implements TextLayoutInterface {
         
     }
     
-    public function setFooterLayout(TextLayoutInterface $layout){
+    public function setFooterLayout(TextLayouterInterface $layout){
         
     }
     
@@ -111,7 +111,7 @@ class TwigLayout implements TextLayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::fill()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::fill()
      */
     public function fill(DataSheetInterface $dataSheet){
         
@@ -120,7 +120,7 @@ class TwigLayout implements TextLayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::prepareDataSheetToFill()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::prepareDataSheetToFill()
      */
     public function prepareDataSheetToFill(DataSheetInterface $dataSheet = null){
         

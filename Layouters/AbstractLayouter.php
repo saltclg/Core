@@ -1,14 +1,14 @@
 <?php
 
-namespace exface\Core\Layouts;
+namespace exface\Core\Layouters;
 
 use exface\Core\CommonLogic\Model\Object;
-use exface\Core\Interfaces\Layouts\LayoutInterface;
+use exface\Core\Interfaces\Layouters\LayouterInterface;
 use exface\Core\CommonLogic\Traits\ImportUxonObjectTrait;
 use exface\Core\CommonLogic\Workbench;
 use exface\Core\Interfaces\NameResolverInterface;
 
-abstract class AbstractLayout implements LayoutInterface {
+abstract class AbstractLayouter implements LayouterInterface {
     
     use ImportUxonObjectTrait;
     
@@ -23,7 +23,7 @@ abstract class AbstractLayout implements LayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::getName()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::getName()
      */
     public function getName(){
         
@@ -32,7 +32,7 @@ abstract class AbstractLayout implements LayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::setName()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::setName()
      */
     public function setName($string){
         
@@ -41,7 +41,7 @@ abstract class AbstractLayout implements LayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::getDescription()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::getDescription()
      */
     public function getDescription(){
         
@@ -50,7 +50,7 @@ abstract class AbstractLayout implements LayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::setDescriptions()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::setDescriptions()
      */
     public function setDescriptions($string){
         
@@ -59,7 +59,7 @@ abstract class AbstractLayout implements LayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::setMetaObject()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::setMetaObject()
      */
     public function setMetaObject(Object $object){
         
@@ -68,7 +68,7 @@ abstract class AbstractLayout implements LayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::getFillData()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::getFillData()
      */
     public function getFillData(){
         
@@ -77,7 +77,7 @@ abstract class AbstractLayout implements LayoutInterface {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Layouts\LayoutInterface::getApp()
+     * @see \exface\Core\Interfaces\Layouters\LayouterInterface::getApp()
      */
     public function getApp(){
         
