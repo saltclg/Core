@@ -5,6 +5,7 @@ use exface\Core\Interfaces\Actions\iExportData;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\CommonLogic\Filemanager;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
+use exface\Core\CommonLogic\Constants\Icons;
 
 /**
  * This action exports the raw data received by a widget as a file for download.
@@ -30,13 +31,18 @@ class ExportData extends ReadData implements iExportData
     
     private $mimeType = null;
     
+    protected function init()
+    {
+        parent::init();
+        $this->setIconName(Icons::DOWNLOAD);
+    }
     /**
      * 
      * {@inheritDoc}
      * @see \exface\Core\Actions\ReadData::perform()
      */
     protected function perform(){
-        $dataSheet = $this->getInputDataSheet()->copy();
+        $dataSheet = $this->getInputDataSheet();
         // Make sure, the input data has all the columns required for the widget
         // we export from. Generally this will not be the case, because the
         // widget calling the action is a button and it normally does not know
@@ -101,7 +107,7 @@ class ExportData extends ReadData implements iExportData
     {
         $elem = $this->getApp()->getWorkbench()->ui()->getTemplate()->getElement($this->getCalledByWidget());
         $output = $elem->prepareData($dataSheet);
-        $contents = $this->getApp()->getWorkbench()->ui()->getTemplate()->encodeData($output);
+        $contents = $this->getApp()->getWorkbench()->ui()->getTemplate()->encodeData($output, false);
         If (is_null($this->getMimeType())){
             // TODO get the mime type from the template somehow
             $this->setMimeType('application/json');

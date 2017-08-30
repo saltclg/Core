@@ -146,10 +146,9 @@ abstract class AbstractDataConnector implements DataConnectionInterface
      */
     public final function query(DataQueryInterface $query)
     {
-        $this->getWorkbench()->eventManager()->dispatch(EventFactory::createDataConnectionEvent($this, 'Query.Before'));
+        $this->getWorkbench()->eventManager()->dispatch(EventFactory::createDataConnectionEvent($this, 'Query.Before', $query));
         $result = $this->performQuery($query);
-        $this->getWorkbench()->eventManager()->dispatch(EventFactory::createDataConnectionEvent($this, 'Query.After'));
-        $this->getWorkbench()->getLogger()->notice('Performed data query via "' . $this->getAliasWithNamespace() . '"', array(), $query);
+        $this->getWorkbench()->eventManager()->dispatch(EventFactory::createDataConnectionEvent($this, 'Query.After', $query));
         return $result;
     }
 

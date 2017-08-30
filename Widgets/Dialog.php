@@ -7,10 +7,10 @@ use exface\Core\CommonLogic\Model\Attribute;
 use exface\Core\Interfaces\Widgets\iHaveContextualHelp;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\Factories\WidgetFactory;
-use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Factories\DataSheetFactory;
 use exface\Core\Interfaces\Widgets\iShowSingleAttribute;
 use exface\Core\Interfaces\Widgets\iContainOtherWidgets;
+use exface\Core\CommonLogic\Constants\Icons;
 
 class Dialog extends Form implements iAmClosable, iHaveContextualHelp
 {
@@ -31,7 +31,7 @@ class Dialog extends Form implements iAmClosable, iHaveContextualHelp
     {
         parent::init();
         $this->setLazyLoading(true);
-        $this->setButtonWidgetType('DialogButton');
+        $this->getToolbarMain()->addButton($this->getCloseButton());
     }
 
     /**
@@ -85,31 +85,22 @@ class Dialog extends Form implements iAmClosable, iHaveContextualHelp
     {
         if (! ($this->close_button instanceof DialogButton)) {
             /* @var $btn DialogButton */
-            $btn = $this->getPage()->createWidget('DialogButton', $this);
+            $btn = $this->createButton();
             $btn->setCloseDialogAfterActionSucceeds(true);
             $btn->setRefreshInput(false);
-            $btn->setIconName('cancel');
+            $btn->setIconName(Icons::TIMES);
             $btn->setCaption($this->translate('WIDGET.DIALOG.CLOSE_BUTTON_CAPTION'));
+            $btn->setAlign(EXF_ALIGN_OPPOSITE);
             if ($this->getHideCloseButton())
                 $btn->setHidden(true);
             $this->close_button = $btn;
         }
         return $this->close_button;
     }
-
-    /**
-     * Returns an array of dialog buttons.
-     * The close button is always added to the end of the button list.
-     * This ensures, that the other buttons can be rearranged without an impact on the close buttons last
-     * position.
-     *
-     * @see \exface\Core\Widgets\Panel::getButtons()
-     */
-    public function getButtons()
+    
+    public function getToolbarWidgetType()
     {
-        $btns = parent::getButtons();
-        $btns[] = $this->getCloseButton();
-        return $btns;
+        return 'DialogToolbar';
     }
 
     /**

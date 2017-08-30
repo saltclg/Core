@@ -25,10 +25,33 @@ trait WidgetExceptionTrait {
         parent::__construct($message, null, $previous);
         $this->setAlias($alias);
         $this->setWidget($widget);
-        // Ist die Widget-Konfiguration fehlerhaft wird das entsprechende Widget entfernt.
-        // Ueber ein Event (Widget.Remove.After) wird das Element auch aus dem Element-
-        // Cache des Templates entfernt (siehe AbstractAjaxTemplate->init()).
-        $widget->getPage()->removeWidget($widget);
+        if ($this->mustDestroyWidget()){
+            $this->cleanupPageCache(); 
+        }
+    }
+    
+    /**
+     * Returns TRUE if this is a critical exception and the widget must be destroyed 
+     * and caches cleaned up.
+     * 
+     * @return boolean
+     */
+    protected function mustDestroyWidget()
+    {
+        return false;
+    }
+    
+    /**
+     * Ist die Widget-Konfiguration fehlerhaft wird das entsprechende Widget entfernt.
+     * Ueber ein Event (Widget.Remove.After) wird das Element auch aus dem Element-
+     * Cache des Templates entfernt (siehe AbstractAjaxTemplate->init()).
+     * 
+     * @return \exface\Core\Exceptions\Widgets\WidgetExceptionTrait
+     */
+    protected function cleanupPageCache()
+    {
+        $this->getWidget()->getPage()->removeWidget($this->getWidget());
+        return $this;
     }
 
     /**
@@ -56,11 +79,12 @@ trait WidgetExceptionTrait {
     public function createDebugWidget(DebugMessage $debug_widget)
     {
         $debug_widget = $this->parentCreateDebugWidget($debug_widget);
-        if ($debug_widget->getChild('widget_uxon_tab') === false) {
+        if ($debug_widget->findChildById('widget_uxon_tab') === false) {
             $page = $debug_widget->getPage();
             $uxon_tab = $debug_widget->createTab();
             $uxon_tab->setId('widget_uxon_tab');
             $uxon_tab->setCaption('Widget UXON');
+            $uxon_tab->setNumberOfColumns(1);
             $request_widget = WidgetFactory::create($page, 'Html');
             $uxon_tab->addWidget($request_widget);
             $request_widget->setValue('<pre>' . (! $this->getWidget()->exportUxonObjectOriginal()->isEmpty() ? $this->getWidget()->exportUxonObjectOriginal()->toJson(true) : $this->getWidget()->exportUxonObject()->toJson(true)) . '</pre>');

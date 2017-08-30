@@ -9,6 +9,8 @@ use exface\Core\Interfaces\Widgets\iSupportLazyLoading;
 use exface\Core\Widgets\ErrorMessage;
 use exface\Core\Widgets\DebugMessage;
 use exface\Core\Factories\DataSheetFactory;
+use exface\Core\Interfaces\Widgets\iHaveToolbars;
+use exface\Core\Widgets\DataToolbar;
 
 /**
  * This trait enables an exception to output meta object specific debug information: properties, attributes, behaviors, etc.
@@ -90,7 +92,7 @@ trait MetaObjectExceptionTrait {
                 // the object of the ErrorMessage in this case
                 $tab->setMetaObject($tab->getMetaObject());
                 
-                foreach ($tab->getChildren() as $child) {
+                foreach ($tab->getChildrenRecursive() as $child) {
                     // Remove all buttons, as the ErrorMessage is read-only
                     if ($child instanceof iHaveButtons) {
                         foreach ($child->getButtons() as $button) {

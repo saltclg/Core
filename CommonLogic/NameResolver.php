@@ -48,6 +48,8 @@ class NameResolver extends AbstractExfaceClass implements NameResolverInterface
     const OBJECT_TYPE_BEHAVIOR = 'Behaviors';
 
     const OBJECT_TYPE_TEMPLATE = 'Template';
+    
+    const OBJECT_TYPE_CONTEXT = 'Contexts';
 
     const CLASS_NAMESPACE_SEPARATOR = '\\';
 
@@ -71,7 +73,7 @@ class NameResolver extends AbstractExfaceClass implements NameResolverInterface
      * NOTE: This is the ExFace-namespace. To get the PHP-namespace use get_class_namespace() instead.
      *
      * @param string $string            
-     * @param exface $exface            
+     * @param Workbench $exface            
      * @return string
      */
     protected static function getNamespaceFromString($string, $separator = self::NAMESPACE_SEPARATOR, $object_type = null)
@@ -98,7 +100,7 @@ class NameResolver extends AbstractExfaceClass implements NameResolverInterface
      * "OBJECT" for "exface.Core.OBJECT")
      *
      * @param string $string            
-     * @param exface $exface            
+     * @param Workbench $exface            
      * @return string
      */
     protected static function getAliasFromString($string, $separator = self::NAMESPACE_SEPARATOR)
@@ -214,6 +216,7 @@ class NameResolver extends AbstractExfaceClass implements NameResolverInterface
     public function getClassNamespace()
     {
         switch ($this->getObjectType()) {
+            case self::OBJECT_TYPE_CONTEXT:
             case self::OBJECT_TYPE_FORMULA:
             case self::OBJECT_TYPE_ACTION:
                 $result = self::APPS_NAMESPACE;

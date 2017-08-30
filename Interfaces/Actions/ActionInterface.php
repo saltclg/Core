@@ -6,12 +6,15 @@ use exface\Core\Interfaces\AliasInterface;
 use exface\Core\CommonLogic\Model\Object;
 use exface\Core\Interfaces\WidgetInterface;
 use exface\Core\Interfaces\AppInterface;
-use exface\Core\Interfaces\UiPageInterface;
+use exface\Core\Interfaces\Model\UiPageInterface;
 use exface\Core\Interfaces\TemplateInterface;
 use exface\Core\Exceptions\Actions\ActionObjectNotSpecifiedError;
 use exface\Core\Exceptions\Actions\ActionInputError;
 use exface\Core\Interfaces\iCanBeCopied;
 use exface\Core\Interfaces\DataSources\DataTransactionInterface;
+use exface\Core\Interfaces\DataSheets\DataSheetInterface;
+use exface\Core\CommonLogic\UxonObject;
+use exface\Core\Interfaces\DataSheets\DataSheetMapperInterface;
 
 interface ActionInterface extends ExfaceClassInterface, AliasInterface, iCanBeCopied
 {
@@ -51,23 +54,43 @@ interface ActionInterface extends ExfaceClassInterface, AliasInterface, iCanBeCo
     public function setAlias($value);
 
     /**
-     * Returns the widget, that called the action (typically a button) or null, if the action was called internally or via AJAX.
+     * Returns the widget, that called the action (typically a button) or the
+     * widget that will call the action if it was not called yet.
+     * 
+     * May return null if the calling widget is not known.
+     * 
+     * NOTE: if the action was not really called yet, this method returns the
+     * widget, that instantiated the action: i.e. the first button on the page,
+     * that will call this action.
+     * 
+     * IDEA Returning NULL in certain cases does not feel right. We had to add 
+     * the called_by_widget() method to be able to determine the meta_object
+     * of the dialog even if the action does not have an input data sheet yet 
+     * (when drawing the dialog in ajax templates). At that point, the action 
+     * does not know, what object it is going to be performed upon. I don't feel 
+     * comfortable with this solution though, since called_by_widget will be 
+     * null when performing the action via AJAX (or the entire page would need 
+     * to be instantiated).
+     * 
+     * Here are the choices I had:
+     * 
+     * - I could create the Dialog when the action is really called an import 
+     * the entire dialog via AJAX.
+     * 
+     * - I could also pass the meta object as a separate parameter to the action:
+     * $action->set_target_meta_object() - may be a good idea since an action 
+     * could also have a built it meta_object, which should not be overridden
+     * or action->set_called_by_widget - enables the action to create widgets 
+     * with real parents, but produces overhead whe called via AJAX and is not 
+     * needed for actions within workflows (or is it?)
      *
-     * @return WidgetInterface IDEA Returning NULL in certain cases does not feel right. We had to add the called_by_widget() method to be able to determine the meta_object
-     *         of the dialog even if the action does not have an input data sheet yet (when drawing the dialog in ajax templates). At that point,
-     *         the action does not know, what object it is going to be performed upon. I don't feel comfortable with this solution though, since called_by_widget
-     *         will be null when performing the action via AJAX (or the entire page would need to be instantiated).
-     *         Here are the choices I had:
-     *         - I could create the Dialog when the action is really called an import the entire dialog via AJAX.
-     *         - I could also pass the meta object as a separate parameter to the action:
-     *         action->set_target_meta_object() - may be a good idea since an action could also have a built it meta_object, which should not be overridden
-     *         or action->set_called_by_widget - enables the action to create widgets with real parents, but produces overhead whe called via AJAX and
-     *         is not needed for actions within workflows (or is it?)
+     * @return WidgetInterface|null 
      */
     public function getCalledByWidget();
 
     /**
-     * Sets the widget, that called the action: either taking an instantiated widget object or a widget link (text, uxon or object)
+     * Sets the widget, that called the action: either taking an instantiated 
+     * widget object or a widget link (text, uxon or object)
      *
      * @param
      *            AbstractWidget || WidgetLink || string $widget_or_widget_link
@@ -139,21 +162,45 @@ interface ActionInterface extends ExfaceClassInterface, AliasInterface, iCanBeCo
     /**
      * Sets the data sheet, the action is supposed to be performed upon.
      *
-     * @param
-     *            DataSheet || UxonObject || string $data_sheet_or_uxon
+     * @param DataSheetInterface||UxonObject||string $data_sheet_or_uxon
+     * 
      * @throws ActionInputError if the passed input data is of an unsupported type
+     * 
      * @return \exface\Core\Interfaces\Actions\ActionInterface
      */
     public function setInputDataSheet($data_sheet_or_uxon);
 
     /**
-     * Returns the data sheet, the action is performed upon.
-     * It remains untouched even after
-     * the action is performed, so you can always return to the input data.
+     * Returns a copy of the data sheet, the action is performed upon.
+     * 
+     * This is what the action logic uses as input. By default input mappers are
+     * automatically applied - to get the raw input data, that was originally
+     * passed to the action, set the parameter $apply_mappers to FALSE.
      *
+     * @param boolean $apply_mappers
+     * 
      * @return DataSheetInterface
      */
-    public function getInputDataSheet();
+    public function getInputDataSheet($apply_mappers = true);
+    
+    /**
+     * @return DataSheetMapperInterface[]
+     */
+    public function getInputMappers();
+    
+    /**
+     *
+     * @param DataSheetMapperInterface[]|UxonObject[] $data_sheet_mappers_or_uxon_objects
+     * @return ActionInterface
+     */
+    public function setInputMappers(array $data_sheet_mappers_or_uxon_objects);
+    
+    /**
+     * 
+     * @param DataSheetMapperInterface $mapper
+     * @return ActionInterface
+     */
+    public function addInputMapper(DataSheetMapperInterface $mapper);
 
     /**
      * Returns the minimum number of rows the action expects in the input data sheet.
@@ -204,7 +251,7 @@ interface ActionInterface extends ExfaceClassInterface, AliasInterface, iCanBeCo
 
     /**
      *
-     * @param unknown $qualified_alias            
+     * @param string $qualified_alias            
      * @return ActionInputInterface
      */
     public function setObjectAlias($qualified_alias);
@@ -365,6 +412,13 @@ interface ActionInterface extends ExfaceClassInterface, AliasInterface, iCanBeCo
      * @return \exface\Core\CommonLogic\AbstractAction
      */
     public function setResultMessageText($value);
+    
+    /**
+     * Returns TRUE if this action matches the given alias and FALSE otherwise.
+     * 
+     * @return boolean
+     */
+    public function is($action_or_alias);
 }
 
 ?>

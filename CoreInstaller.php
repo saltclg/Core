@@ -1,11 +1,11 @@
 <?php
 namespace exface\Core;
 
-use exface\Core\CommonLogic\AbstractAppInstaller;
+use exface\Core\CommonLogic\AppInstallers\AbstractAppInstaller;
 
 /**
  *
- * @method CoreApp get_app()
+ * @method CoreApp getApp()
  *        
  * @author Andrej Kabachnik
  *        
@@ -14,10 +14,9 @@ class CoreInstaller extends AbstractAppInstaller
 {
 
     /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\Core\CommonLogic\AbstractApp::install()
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\InstallerInterface::install()
      */
     public function install($source_absolute_path)
     {
@@ -45,7 +44,7 @@ class CoreInstaller extends AbstractAppInstaller
      */
     public function uninstall()
     {
-        return 'Uninstall not implemented for' . $this->getNameResolver()->getAliasWithNamespace() . '!';
+        return 'Uninstall not implemented for installer "' . $this->getNameResolver()->getAliasWithNamespace() . '"!';
     }
 
     /**

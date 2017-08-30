@@ -1,6 +1,8 @@
 <?php
 namespace exface\Core\DataTypes;
 
+use exface\Core\CommonLogic\Constants\SortingDirections;
+
 class StringDataType extends AbstractDataType
 {
 
@@ -62,6 +64,32 @@ class StringDataType extends AbstractDataType
         } else {
             return substr(mb_strtoupper($haystack), 0, strlen(mb_strtoupper($needle))) === mb_strtoupper($needle);
         }
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\DataTypes\AbstractDataType::parse()
+     */
+    public static function parse($string)
+    {
+        if (is_scalar($string)){
+            return $string;
+        } elseif (is_array($string)){
+            return implode(EXF_LIST_SEPARATOR, $string);
+        } else {
+            return '';
+        }
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\DataTypes\AbstractDataType::getDefaultSortingDirection()
+     */
+    public function getDefaultSortingDirection()
+    {
+        return SortingDirections::ASC();
     }
 }
 ?>

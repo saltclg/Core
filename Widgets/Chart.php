@@ -2,8 +2,8 @@
 namespace exface\Core\Widgets;
 
 use exface\Core\CommonLogic\UxonObject;
-use exface\Core\Interfaces\Widgets\iHaveTopToolbar;
-use exface\Core\Interfaces\Widgets\iHaveBottomToolbar;
+use exface\Core\Interfaces\Widgets\iHaveHeader;
+use exface\Core\Interfaces\Widgets\iHaveFooter;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
 use exface\Core\Factories\WidgetLinkFactory;
 use exface\Core\Interfaces\Widgets\iHaveButtons;
@@ -11,17 +11,23 @@ use exface\Core\Interfaces\Widgets\iSupportLazyLoading;
 use exface\Core\Interfaces\Widgets\iShowDataSet;
 use exface\Core\Exceptions\Widgets\WidgetPropertyInvalidValueError;
 use exface\Core\Exceptions\Widgets\WidgetConfigurationError;
+use exface\Core\Interfaces\Widgets\iFillEntireContainer;
+use exface\Core\Widgets\Traits\iHaveButtonsAndToolbarsTrait;
+use exface\Core\Interfaces\Widgets\iHaveToolbars;
+use exface\Core\Interfaces\Widgets\iHaveConfigurator;
 
 /**
- * A Button is the primary widget for triggering actions.
- * In addition to the general widget attributes it can have
- * an icon and also subwidgets (if the triggered action shows a widget).
+ * A Chart widget draws a chart with upto two axis and any number of series.
+ * 
+ * Every Chart contains a Data widget, that fetches data visualized by the chart.
+ * Chart series as well as axis legends are extracted for columns in that data.
  *
  * @author Andrej Kabachnik
  *        
  */
-class Chart extends AbstractWidget implements iShowDataSet, iHaveButtons, iHaveTopToolbar, iHaveBottomToolbar, iSupportLazyLoading
+class Chart extends AbstractWidget implements iShowDataSet, iHaveToolbars, iHaveButtons, iHaveHeader, iHaveFooter, iHaveConfigurator, iSupportLazyLoading, iFillEntireContainer
 {
+    use iHaveButtonsAndToolbarsTrait;
 
     /**
      *
@@ -63,13 +69,13 @@ class Chart extends AbstractWidget implements iShowDataSet, iHaveButtons, iHaveT
      *
      * @var boolean
      */
-    private $hide_toolbar_top = false;
+    private $hide_header = false;
 
     /**
      *
      * @var boolean
      */
-    private $hide_toolbar_bottom = false;
+    private $hide_footer = false;
 
     /** @var Button[] */
     private $buttons = array();
@@ -87,7 +93,7 @@ class Chart extends AbstractWidget implements iShowDataSet, iHaveButtons, iHaveT
         if (! $this->getDataWidgetLink()) {
             $children[] = $this->getData();
         }
-        $children = array_merge($children, $this->getAxes(), $this->getSeries());
+        $children = array_merge($children, $this->getAxes(), $this->getSeries(), $this->getToolbars());
         return $children;
     }
 
@@ -230,7 +236,14 @@ class Chart extends AbstractWidget implements iShowDataSet, iHaveButtons, iHaveT
         $data = $this->getPage()->createWidget('Data', $this);
         $data->setMetaObjectId($this->getMetaObjectId());
         $data->importUxonObject($uxon_object);
+        // Do not add action automatically as the internal data toolbar will
+        // not be shown anyway. The Chart has it's own toolbars.
+        // IDEA why create two sets of toolbars? Maybe we can reuse the data
+        // toolbars in the chart?
+        $data->getToolbarMain()->setIncludeNoExtraActions(true);
+        
         $this->data = $data;
+        return $this;
     }
 
     /**
@@ -413,52 +426,40 @@ class Chart extends AbstractWidget implements iShowDataSet, iHaveButtons, iHaveT
     /**
      * Set to true to hide the top toolbar, which generally will contain filters and other settings
      *
-     * @uxon-property hide_toolbar_top
+     * @uxon-property hide_header
      *
      * {@inheritdoc}
      *
-     * @see \exface\Core\Interfaces\Widgets\iHaveTopToolbar::getHideToolbarTop()
+     * @see \exface\Core\Interfaces\Widgets\iHaveHeader::getHideHeader()
      */
-    public function getHideToolbarTop()
+    public function getHideHeader()
     {
-        return $this->hide_toolbar_top;
+        return $this->hide_header;
     }
 
-    public function setHideToolbarTop($value)
+    public function setHideHeader($value)
     {
-        $this->hide_toolbar_top = $value;
+        $this->hide_header = $value;
         return $this;
     }
 
-    public function getHideToolbarBottom()
+    public function getHideFooter()
     {
-        return $this->hide_toolbar_bottom;
+        return $this->hide_footer;
     }
 
     /**
      * Set to true to hide the bottom toolbar, which generally will contain pagination
      *
-     * @uxon-property hide_toolbar_bottom
+     * @uxon-property hide_footer
      *
      * {@inheritdoc}
      *
-     * @see \exface\Core\Interfaces\Widgets\iHaveBottomToolbar::setHideToolbarBottom()
+     * @see \exface\Core\Interfaces\Widgets\iHaveFooter::setHideFooter()
      */
-    public function setHideToolbarBottom($value)
+    public function setHideFooter($value)
     {
-        $this->hide_toolbar_bottom = $value;
-        return $this;
-    }
-
-    public function getHideToolbars()
-    {
-        return ($this->getHideToolbarTop() && $this->getHideToolbarBottom());
-    }
-
-    public function setHideToolbars($value)
-    {
-        $this->setHideToolbarTop($value);
-        $this->setHideToolbarBottom($value);
+        $this->hide_footer = $value;
         return $this;
     }
 
@@ -502,17 +503,6 @@ class Chart extends AbstractWidget implements iShowDataSet, iHaveButtons, iHaveT
     }
 
     /**
-     * {@inheritdoc}
-     *
-     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::getButtons()
-     * @return DataButton
-     */
-    public function getButtons()
-    {
-        return $this->buttons;
-    }
-
-    /**
      * Returns an array of button widgets, that are explicitly bound to a double click on a data element
      *
      * @param string $mouse_action            
@@ -531,59 +521,6 @@ class Chart extends AbstractWidget implements iShowDataSet, iHaveButtons, iHaveT
 
     /**
      *
-     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::setButtons()
-     */
-    public function setButtons(array $buttons_array)
-    {
-        if (! is_array($buttons_array))
-            return false;
-        foreach ($buttons_array as $b) {
-            $button = $this->getPage()->createWidget('DataButton', $this, UxonObject::fromAnything($b));
-            $this->addButton($button);
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::addButton()
-     */
-    public function addButton(Button $button_widget)
-    {
-        $button_widget->setParent($this);
-        $button_widget->setMetaObjectId($this->getMetaObject()->getId());
-        $this->buttons[] = $button_widget;
-    }
-
-    /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::removeButton()
-     */
-    public function removeButton(Button $button_widget)
-    {
-        if (($key = array_search($button_widget, $this->buttons)) !== false) {
-            unset($this->buttons[$key]);
-        }
-        return $this;
-    }
-
-    /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::hasButtons()
-     */
-    public function hasButtons()
-    {
-        if (count($this->buttons))
-            return true;
-        else
-            return false;
-    }
-
-    /**
      * {@inheritdoc}
      *
      * @see \exface\Core\Interfaces\Widgets\iSupportLazyLoading::getLazyLoading()
@@ -660,6 +597,41 @@ class Chart extends AbstractWidget implements iShowDataSet, iHaveButtons, iHaveT
     {
         $this->lazy_loading_group_id = $value;
         return $this;
+    }
+
+    public function getAlternativeContainerForOrphanedSiblings()
+    {
+        return null;
+    }
+    /**
+     * 
+     */
+    public function getConfiguratorWidget()
+    {
+        return $this->getData()->getConfiguratorWidget();
+    }
+    
+    /**
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iHaveConfigurator::setConfiguratorWidget()
+     */
+    public function setConfiguratorWidget($widget_or_uxon_object)
+    {
+        return $this->getData()->setConfiguratorWidget($widget_or_uxon_object);
+    }
+    
+    /**
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iHaveConfigurator::getConfiguratorWidgetType()
+     */
+    public function getConfiguratorWidgetType()
+    {
+        return 'ChartConfigurator';
+    }
+    
+    public function getToolbarWidgetType()
+    {
+        return 'DataToolbar';
     }
 }
 ?>

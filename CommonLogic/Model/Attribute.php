@@ -2,14 +2,22 @@
 
 namespace exface\Core\CommonLogic\Model;
 
-use exface\Core\DataTypes\AbstractDataType;
 use exface\Core\CommonLogic\Workbench;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Factories\DataTypeFactory;
 use exface\Core\Factories\RelationPathFactory;
 use exface\Core\Interfaces\ExfaceClassInterface;
 use exface\Core\Interfaces\iCanBeCopied;
+use exface\Core\Exceptions\UnexpectedValueException;
+use exface\Core\Interfaces\Model\DataTypeInterface;
+use exface\Core\CommonLogic\Constants\SortingDirections;
+use exface\Core\Exceptions\Model\MetaObjectModelError;
 
+/**
+ * 
+ * @author Andrej Kabachnik
+ *
+ */
 class Attribute implements ExfaceClassInterface, iCanBeCopied
 {
 
@@ -49,6 +57,8 @@ class Attribute implements ExfaceClassInterface, iCanBeCopied
     private $default_value;
 
     private $fixed_value;
+    
+    private $value_list_delimiter = EXF_LIST_SEPARATOR;
 
     private $default_sorter_dir = 'ASC';
 
@@ -137,20 +147,28 @@ class Attribute implements ExfaceClassInterface, iCanBeCopied
     /**
      * Returns the data type of the attribute as an instantiated data type object
      * 
-     * @return AbstractDataType
+     * @return DataTypeInterface
      */
     public function getDataType()
     {
+        if (is_string($this->data_type)){
+            $this->data_type = DataTypeFactory::createFromAlias($this->getWorkbench(), $this->data_type);
+        }
         return $this->data_type;
     }
-
+    
+    /**
+     * 
+     * @param string|DataTypeInterface $object_or_name
+     * @throws UnexpectedValueException
+     * @return \exface\Core\CommonLogic\Model\Attribute
+     */
     public function setDataType($object_or_name)
     {
-        if ($object_or_name instanceof AbstractDataType) {
+        if (is_string($object_or_name) || ($object_or_name instanceof DataTypeInterface)) {
             $this->data_type = $object_or_name;
         } else {
-            $exface = $this->getModel()->getWorkbench();
-            $this->data_type = DataTypeFactory::createFromAlias($exface, $object_or_name);
+            throw new UnexpectedValueException('Invalid data type value given to attribute "' . $this->getAliasWithRelationPath() . '" of object "' . $this->getObject()->getAliasWithNamespace() . '": string or instantiated data type classes expected!');
         }
         return $this;
     }
@@ -376,14 +394,31 @@ class Attribute implements ExfaceClassInterface, iCanBeCopied
         $this->fixed_value = $value;
     }
 
+    /**
+     * 
+     * @return \exface\Core\CommonLogic\Constants\SortingDirections
+     */
     public function getDefaultSorterDir()
     {
-        return $this->default_sorter_dir;
+        return $this->default_sorter_dir ? $this->default_sorter_dir : $this->getDataType()->getDefaultSortingDirection();
     }
 
+    /**
+     * 
+     * @param SortingDirections|string $value
+     */
     public function setDefaultSorterDir($value)
-    {
+    {        
+        if ($value instanceof SortingDirections){
+            // everything is OK
+        } elseif (SortingDirections::isValid(strtolower($value))){
+            $value = new SortingDirections(strtolower($value));
+        } else {
+            throw new UnexpectedValueException('Invalid value "' . $value . '" for default sorting direction in attribute "' . $this->getName() . '": use ASC or DESC');
+        }
+        
         $this->default_sorter_dir = $value;
+        return $this;
     }
 
     public function getObjectId()
@@ -700,5 +735,45 @@ class Attribute implements ExfaceClassInterface, iCanBeCopied
         $this->aggregatable = \exface\Core\DataTypes\BooleanDataType::parse($value);
         return $this;
     }
+    
+    /**
+     * Returns the delimiter to be used when concatennating multiple values of 
+     * this attribute into a string.
+     * 
+     * Defaults to EXF_LIST_SEPARATOR unless changed via setValueListDelimiter()
+     * 
+     * @return string
+     */
+    public function getValueListDelimiter()
+    {
+        return $this->value_list_delimiter;
+    }
+    
+    /**
+     * Changes the delimiter to be used when concatennating multiple values of 
+     * this attribute into a string.
+     * 
+     * This is usefull if the values are likely to contain the delimiter string
+     * themselves. Since the default delimiter is a comma, you should change it
+     * to something else if your values will regularly contain commas. 
+     * 
+     * Note, for longer texts, that will contain commas in most cases, there is
+     * normally no need to change the delimiter because it is mainly used for
+     * all kinds of filter and relation keys. Longer texts with commas, on the 
+     * other hand, are very unlikely to be used for keys or as search strings.
+     * If it still happens, change the delimiter to a pipe or so, that - in
+     * turn - is very unlikely to be included in a longer text.
+     * 
+     * @param string $string
+     * @return \exface\Core\CommonLogic\Model\Attribute
+     */
+    public function setValueListDelimiter($string)
+    {
+        if (!is_null($string) && $string !== ''){
+            $this->value_list_delimiter = $string;
+        }
+        return $this;
+    }
+ 
 }
 ?>

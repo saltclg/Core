@@ -12,6 +12,8 @@ use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Exceptions\Widgets\WidgetPropertyInvalidValueError;
 use exface\Core\Interfaces\Widgets\iHaveButtons;
 use exface\Core\Interfaces\Widgets\iCanBeAligned;
+use exface\Core\Widgets\Traits\iCanBeAlignedTrait;
+use exface\Core\Interfaces\Widgets\iUseInputWidget;
 
 /**
  * A Button is the primary widget for triggering actions.
@@ -21,9 +23,10 @@ use exface\Core\Interfaces\Widgets\iCanBeAligned;
  * @author Andrej Kabachnik
  *        
  */
-class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveChildren, iCanBeAligned
+class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iUseInputWidget, iHaveChildren, iCanBeAligned
 {
-
+    use iCanBeAlignedTrait;
+    
     private $action_alias = null;
 
     private $action = null;
@@ -73,6 +76,15 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
     {
         if ($action_object_or_uxon_description instanceof ActionInterface) {
             $this->action = $action_object_or_uxon_description;
+            // Let the action know, it was (or will be) called by this button
+            // unless the action already has a called-by-widget. This would be
+            // the case if the same action is assigned to multiple buttons. 
+            // Although this feature is currently not explicitly used, it seems
+            // a decent idea to share an action between buttons: e.g. a toolbar
+            // button and a menu button which actually do exactly the same thing.
+            if (! $this->action->getCalledByWidget()){
+                $this->action->setCalledByWidget($this);
+            }
         } elseif ($action_object_or_uxon_description instanceof \stdClass) {
             $this->setActionAlias($action_object_or_uxon_description->alias);
             $this->setActionOptions($action_object_or_uxon_description);
@@ -101,11 +113,13 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
      * @uxon-property action_alias
      * @uxon-type string
      *
-     * @param string $value            
+     * @param string $value
+     * @return Button            
      */
     public function setActionAlias($value)
     {
         $this->action_alias = $value;
+        return $this;
     }
 
     public function setCaption($caption)
@@ -144,19 +158,42 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
     public function setInputWidgetId($value)
     {
         $this->input_widget_id = $value;
+        return $this;
     }
-
+    
+    /**
+     * Returns the input widget of the button.
+     * 
+     * If no input widget was set for this button explicitly (via UXON or
+     * programmatically using setInputWidget()), the input widget will be
+     * determined automatically:
+     * - If the parent of the button is a button or a button group, the input
+     * widget will be inherited
+     * - If the parent of the widget has buttons (e.g. a Data widget), it will
+     * be used as input widget
+     * - Otherwise the search for those criteria will continue up the hierarchy
+     * untill the root widget is reached. If no match is found, the root widget
+     * itself will be returned.
+     * 
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iTriggerAction::getInputWidget()
+     */
     public function getInputWidget()
     {
         if (is_null($this->input_widget)) {
             if ($this->input_widget_id) {
                 $this->input_widget = $this->getUi()->getWidget($this->input_widget_id, $this->getPageId());
-            } else {
+            } elseif ($this->getParent()) {
                 $parent = $this->getParent();
-                while ((! ($parent instanceof iHaveButtons) || ($parent instanceof Button)) && ! is_null($parent->getParent())) {
+                while (!(($parent instanceof iHaveButtons) || ($parent instanceof iUseInputWidget)) && ! is_null($parent->getParent())) {
                     $parent = $parent->getParent();
                 }
-                $this->input_widget = $parent;
+                if ($parent instanceof iUseInputWidget){
+                    $this->input_widget = $parent->getInputWidget();
+                } else {
+                    $this->input_widget = $parent;
+                }
             }
         }
         return $this->input_widget;
@@ -202,6 +239,7 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
      *
      * @param \stdClass $action_options            
      * @throws WidgetPropertyInvalidValueError
+     * @return Button
      */
     protected function setActionOptions(\stdClass $action_options)
     {
@@ -210,6 +248,7 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
         } else {
             $action->importUxonObject($action_options);
         }
+        return $this;
     }
 
     /**
@@ -231,11 +270,13 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
      * @uxon-property hotkey
      * @uxon-type string
      *
-     * @param string $value            
+     * @param string $value  
+     * @return Button          
      */
     public function setHotkey($value)
     {
         $this->hotkey = $value;
+        return $this;
     }
 
     public function getIconName()
@@ -262,6 +303,7 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
     public function setIconName($value)
     {
         $this->icon_name = $value;
+        return $this;
     }
 
     public function getRefreshInput()
@@ -281,6 +323,7 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
     public function setRefreshInput($value)
     {
         $this->refresh_input = $value;
+        return $this;
     }
 
     public function getHideButtonText()
@@ -295,11 +338,13 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
      * @uxon-property hide_button_text
      * @uxon-type boolean
      *
-     * @param boolean $value            
+     * @param boolean $value  
+     * @return Button          
      */
     public function setHideButtonText($value)
     {
         $this->hide_button_text = $value;
+        return $this;
     }
 
     public function getHideButtonIcon()
@@ -314,11 +359,13 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
      * @uxon-property hide_button_icon
      * @uxon-type boolean
      *
-     * @param boolean $value            
+     * @param boolean $value 
+     * @return Button           
      */
     public function setHideButtonIcon($value)
     {
         $this->hide_button_icon = $value;
+        return $this;
     }
 
     /**
@@ -330,7 +377,8 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
     public function getChildren()
     {
         $children = array();
-        if ($this->getAction() && $this->getAction()->implementsInterface('iShowWidget') && $this->getAction()->getWidget()) {
+        $action = $this->getAction();
+        if ($action && $action->implementsInterface('iShowWidget') && $action->isWidgetDefined()) {
             $children[] = $this->getAction()->getWidget();
         }
         return $children;
@@ -385,29 +433,6 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
         return $this;
     }
 
-    public function getAlign()
-    {
-        return $this->align;
-    }
-
-    /**
-     * Sets the alignment of the button: left, right, center.
-     * If not set, the alignment depends on the specific implementation of the current template.
-     *
-     * @uxon-property align
-     * @uxon-type string
-     *
-     * @see \exface\Core\Interfaces\Widgets\iCanBeAligned::setAlign()
-     */
-    public function setAlign($value)
-    {
-        if (! defined('EXF_ALIGN_' . mb_strtoupper($value))) {
-            throw new WidgetPropertyInvalidValueError($this, 'Invalid alignment value "' . $value . '": use "left", "rigth" or "center"!');
-        }
-        $this->align = constant('EXF_ALIGN_' . mb_strtoupper($value));
-        return $this;
-    }
-
     /**
      *
      * {@inheritdoc}
@@ -419,6 +444,16 @@ class Button extends AbstractWidget implements iHaveIcon, iTriggerAction, iHaveC
         $uxon = parent::exportUxonObject();
         // TODO What do we do with the action here?
         return $uxon;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Widgets\AbstractWidget::getHint()
+     */
+    public function getHint()
+    {
+        return parent::getHint() ? parent::getHint() : $this->getCaption();
     }
 }
 ?>

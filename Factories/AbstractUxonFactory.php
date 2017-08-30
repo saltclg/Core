@@ -13,7 +13,7 @@ abstract class AbstractUxonFactory extends AbstractFactory
      * Creates an object from a standard class (e.g.
      * the result of json_decode())
      *
-     * @param exface $exface            
+     * @param Workbench $exface            
      * @param \stdClass $json_object            
      */
     public static function createFromStdClass(Workbench $exface, \stdClass $json_object)
@@ -31,7 +31,7 @@ abstract class AbstractUxonFactory extends AbstractFactory
      * If the business object implements iCanBeConvertedToUxon, this method
      * will work automatically. Otherwise it needs to be overridden in the specific factory.
      *
-     * @param exface $exface            
+     * @param Workbench $exface            
      * @param UxonObject $uxon            
      * @throws UnexpectedValueException
      */

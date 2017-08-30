@@ -5,6 +5,7 @@ use exface\Core\Interfaces\Widgets\iHaveMenu;
 use exface\Core\Interfaces\Widgets\iHaveButtons;
 use exface\Core\Factories\WidgetFactory;
 use exface\Core\Exceptions\Widgets\WidgetPropertyInvalidValueError;
+use exface\Core\CommonLogic\UxonObject;
 
 /**
  * A button with a menu, containing other buttons.
@@ -49,7 +50,6 @@ class MenuButton extends Button implements iHaveMenu, iHaveButtons
         if ($menu_widget_or_uxon_or_array instanceof Menu) {
             $this->menu = $menu_widget_or_uxon_or_array;
             $this->menu->setParent($this);
-            $this->menu->setInputWidget($this->getInputWidget());
         } elseif (is_array($menu_widget_or_uxon_or_array)) {
             $this->getMenu()->setButtons($menu_widget_or_uxon_or_array);
         } elseif ($menu_widget_or_uxon_or_array instanceof \stdClass) {
@@ -65,9 +65,9 @@ class MenuButton extends Button implements iHaveMenu, iHaveButtons
      *
      * @see \exface\Core\Interfaces\Widgets\iHaveButtons::getButtons()
      */
-    public function getButtons()
+    public function getButtons(callable $filter_callback = null)
     {
-        return $this->getMenu()->getButtons();
+        return $this->getMenu()->getButtons($filter_callback);
     }
 
     /**
@@ -90,9 +90,9 @@ class MenuButton extends Button implements iHaveMenu, iHaveButtons
      *
      * @see \exface\Core\Interfaces\Widgets\iHaveButtons::addButton()
      */
-    public function addButton(Button $button_widget)
+    public function addButton(Button $button_widget, $index = null)
     {
-        $this->getMenu()->addButton($button_widget);
+        $this->getMenu()->addButton($button_widget, $index);
         return $this;
     }
 
@@ -142,6 +142,46 @@ class MenuButton extends Button implements iHaveMenu, iHaveButtons
     public function getButtonWidgetType()
     {
         return $this->getMenu()->getButtonWidgetType();
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::countButtons()
+     */
+    public function countButtons(callable $filter_callback = null)
+    {
+        return $this->getMenu()->countButtons($filter_callback);
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::getButtonIndex()
+     */
+    public function getButtonIndex(Button $widget)
+    {
+        return $this->getMenu()->getButtonIndex($widget);    
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::getButton()
+     */
+    public function getButton($index)
+    {
+        return $this->getMenu()->getButton($index);
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iHaveButtons::createButton()
+     */
+    public function createButton(UxonObject $uxon = null)
+    {
+        return $this->getMenu()->createButton($uxon);
     }
 }
 ?>

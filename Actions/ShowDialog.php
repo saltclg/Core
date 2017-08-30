@@ -5,6 +5,7 @@ use exface\Core\Interfaces\Actions\iShowDialog;
 use exface\Core\Widgets\AbstractWidget;
 use exface\Core\Widgets\Dialog;
 use exface\Core\Interfaces\Widgets\iHaveIcon;
+use exface\Core\CommonLogic\UxonObject;
 
 class ShowDialog extends ShowWidget implements iShowDialog
 {
@@ -83,10 +84,11 @@ class ShowDialog extends ShowWidget implements iShowDialog
 
     protected function getDialogCaption()
     {
-        if (! $caption = $this->getName()) {
-            if ($this->getCalledByWidget()) {
-                $caption = $this->getCalledByWidget()->getCaption();
-            }
+        if ($this->getCalledByWidget()) {
+            $caption = $this->getCalledByWidget()->getCaption();
+        }
+        if (! $caption) {
+            $caption = $this->getName();
         }
         return $caption;
     }
@@ -104,6 +106,9 @@ class ShowDialog extends ShowWidget implements iShowDialog
     {
         $widget = parent::getWidget();
         if (! ($widget instanceof Dialog)) {
+            if (!is_null($widget)){
+                $this->getWorkbench()->getLogger()->warning('Widget of type ' . $widget->getWidgetType() . ' used for action ' . $this->getAliasWithNamespace() . '! This is known to cause issues with AJAX requests: use dialog-widgets instead.');
+            }
             $widget = $this->createDialogWidget($widget);
             $this->setWidget($widget);
         }
@@ -114,7 +119,22 @@ class ShowDialog extends ShowWidget implements iShowDialog
         }
         return $widget;
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Actions\ShowWidget::getDefaultWidgetType()
+     */
+    public function getDefaultWidgetType()
+    {
+        return 'Dialog';
+    }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Actions\iShowDialog::getDialogWidget()
+     */
     public function getDialogWidget()
     {
         return $this->getWidget();
@@ -161,14 +181,17 @@ class ShowDialog extends ShowWidget implements iShowDialog
      * Adds extra buttons to a dialog.
      *
      * "dialog_buttons": [
-     * {
-     * "widget_type": "DialogButton",
-     * "action_alias": "exface.Core.UpdateData",
-     * "caption": "Speichern"
-     * }
-     * ]
+     *      {
+     *          "widget_type": "DialogButton",
+     *          "action_alias": "exface.Core.UpdateData",
+     *          "caption": "Speichern"
+     *      }
+     *  ]
+     *  
+     * @uxon-property dialog_buttons
+     * @uxon-type \exface\Core\Widgets\Button[]
      *
-     * @param array $uxon_array            
+     * @param UxonObject[] $uxon_array            
      * @return \exface\Core\Actions\ShowDialog
      */
     public function setDialogButtons($uxon_array)

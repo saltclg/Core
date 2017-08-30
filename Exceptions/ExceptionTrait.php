@@ -4,7 +4,7 @@ namespace exface\Core\Exceptions;
 use exface\Core\Interfaces\Exceptions\ExceptionInterface;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\Exceptions\WarningExceptionInterface;
-use exface\Core\Interfaces\UiPageInterface;
+use exface\Core\Interfaces\Model\UiPageInterface;
 use exface\Core\Factories\WidgetFactory;
 use exface\Core\Widgets\ErrorMessage;
 use exface\Core\Interfaces\Exceptions\ErrorExceptionInterface;
@@ -33,6 +33,10 @@ trait ExceptionTrait {
     private $id = null;
 
     private $exception_widget = null;
+
+    private $system = false;
+
+    private $support_mail = false;
 
     public function __construct($message, $alias = null, $previous = null)
     {
@@ -108,10 +112,11 @@ trait ExceptionTrait {
     {
         $page = $debug_widget->getPage();
         // Add a tab with a user-friendly error description
-        if ($debug_widget->getChild('error_tab') === false) {
+        if ($debug_widget->findChildById('error_tab') === false) {
             $error_tab = $debug_widget->createTab();
             $error_tab->setId('error_tab');
             $error_tab->setCaption($debug_widget->getWorkbench()->getCoreApp()->getTranslator()->translate('ERROR.CAPTION'));
+            $error_tab->setNumberOfColumns(1);
             if ($this->getAlias()) {
                 $error_ds = $this->getErrorData($page->getWorkbench(), $this->getAlias());
                 $error_heading = WidgetFactory::create($page, 'TextHeading', $error_tab)->setHeadingLevel(2)->setValue($debug_widget->getWorkbench()->getCoreApp()->getTranslator()->translate('ERROR.CAPTION') . ' ' . $this->getAlias() . ': ' . $error_ds->getCellValue('ERROR_TEXT', 0));
@@ -129,17 +134,19 @@ trait ExceptionTrait {
             /** @var Message $support_hint */
             $support_hint = WidgetFactory::create($page, 'Message', $error_tab);
             $support_hint->setType(EXF_MESSAGE_TYPE_INFO);
-            $support_hint->setText($debug_widget->getWorkbench()->getCoreApp()->getTranslator()->translate('ERROR.SUPPORT_HINT', ['%error_id%' => 'LOG-'.$this->getId()]));
+
+            $support_hint->setText($debug_widget->getWorkbench()->getCoreApp()->getTranslator()->translate('ERROR.SUPPORT_HINT', ['%error_id%' => 'LOG-'.$this->getId(), '%system_name%' => $this->getSystemByPage($page), '%support_mail%' => $this->getSupportMailByPage($page)]));
             $error_tab->addWidget($support_hint);
             
             $debug_widget->addTab($error_tab);
         }
         
         // Add a tab with the exception printout
-        if ($debug_widget->getChild('stacktrace_tab') === false) {
+        if ($debug_widget->findChildById('stacktrace_tab') === false) {
             $stacktrace_tab = $debug_widget->createTab();
             $stacktrace_tab->setId('stacktrace_tab');
             $stacktrace_tab->setCaption($debug_widget->getWorkbench()->getCoreApp()->getTranslator()->translate('ERROR.STACKTRACE_CAPTION'));
+            $stacktrace_tab->setNumberOfColumns(1);
             $stacktrace_widget = WidgetFactory::create($page, 'Html', $stacktrace_tab);
             $stacktrace_tab->addWidget($stacktrace_widget);
             $stacktrace_widget->setValue($page->getWorkbench()->getCMS()->sanitizeErrorOutput($page->getWorkbench()->getDebugger()->printException($this)));
@@ -147,10 +154,11 @@ trait ExceptionTrait {
         }
         
         // Add a tab with the request printout
-        if ($page->getWorkbench()->getConfig()->getOption('DEBUG.SHOW_REQUEST_DUMP') && $debug_widget->getChild('request_tab') === false) {
+        if ($page->getWorkbench()->getConfig()->getOption('DEBUG.SHOW_REQUEST_DUMP') && $debug_widget->findChildById('request_tab') === false) {
             $request_tab = $debug_widget->createTab();
             $request_tab->setId('request_tab');
             $request_tab->setCaption($page->getWorkbench()->getCoreApp()->getTranslator()->translate('ERROR.REQUEST_CAPTION'));
+            $request_tab->setNumberOfColumns(1);
             $request_widget = WidgetFactory::create($page, 'Html', $request_tab);
             $request_tab->addWidget($request_widget);
             $request_widget->setValue('<pre>' . $page->getWorkbench()->getDebugger()->printVariable($_REQUEST, true, 5) . '</pre>');
@@ -158,17 +166,18 @@ trait ExceptionTrait {
         }
         
         // Context tab
-        if ($debug_widget->getChild('context_tab') === false){
+        if ($debug_widget->findChildById('context_tab') === false){
             $context_dump = array();
             foreach ($page->getWorkbench()->context()->getScopes() as $context_scope){
                 $context_dump[$context_scope->getName()]['id'] = $context_scope->getScopeId();
-                foreach ($context_scope->getAllContexts() as $context){
+                foreach ($context_scope->getContextsLoaded() as $context){
                     $context_dump[$context_scope->getName()][$context->getAlias()] = $context->exportUxonObject();
                 }
             }
             $context_tab = $debug_widget->createTab();
             $context_tab->setId('context_tab');
             $context_tab->setCaption($page->getWorkbench()->getCoreApp()->getTranslator()->translate('ERROR.CONTEXT_CAPTION'));
+            $context_tab->setNumberOfColumns(1);
             $context_widget = WidgetFactory::create($page, 'Html', $context_tab);
             $context_widget->setValue('<pre>' . $page->getWorkbench()->getDebugger()->printVariable($context_dump, true, 2) . '</pre>');
             $context_tab->addWidget($context_widget);
@@ -284,6 +293,34 @@ trait ExceptionTrait {
     {
         $this->logLevel = $logLevel;
         return $this;
-    }    
+    }
+
+    public function getSystemByPage(UiPageInterface $page)
+    {
+        if( $this->system == FALSE) {
+            $this->system = $page->getWorkbench()->getCMS()->getSiteUrl();
+        }
+        return $this->system;
+    }
+
+    public function getSupportMailByPage(UiPageInterface $page)
+    {
+        if( $this->support_mail == FALSE) {
+            $this->support_mail = $this->getConfigValueByPage($page, "DEBUG.SUPPORT_EMAIL_ADDRESS");
+        }
+        return $this->support_mail;
+    }
+
+    protected function getConfigValueByPage(UiPageInterface $page, $option) {
+        $app = $page->getWorkbench()->getApp("exface.Core");
+        if(!$app ) {
+            return null;
+        }
+        $config = $app->getConfig();
+        if(!$config ) {
+            return null;
+        }
+        return $config->getOption($option);
+    }
 }
 ?>

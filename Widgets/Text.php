@@ -10,6 +10,7 @@ use exface\Core\Factories\DataTypeFactory;
 use exface\Core\Exceptions\Widgets\WidgetPropertyInvalidValueError;
 use exface\Core\Factories\DataSheetFactory;
 use exface\Core\CommonLogic\Model\Relation;
+use exface\Core\Widgets\Traits\iCanBeAlignedTrait;
 
 /**
  * The text widget simply shows text with an optional title created from the caption of the widget
@@ -19,12 +20,13 @@ use exface\Core\CommonLogic\Model\Relation;
  */
 class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, iShowText
 {
-
+    use iCanBeAlignedTrait {
+        getAlign as getAlignDefault;
+    }
+    
     private $text = NULL;
 
     private $attribute_alias = null;
-
-    private $align = null;
 
     private $data_type = null;
 
@@ -76,6 +78,8 @@ class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, i
     public function prepareDataSheetToRead(DataSheetInterface $data_sheet = null)
     {
         $data_sheet = parent::prepareDataSheetToRead($data_sheet);
+        $widget_object = $this->getMetaObject();
+        $prefill_object = $data_sheet->getMetaObject();
         
         // FIXME how to prefill values, that were defined by a widget link???
         /*
@@ -87,7 +91,13 @@ class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, i
          *  }
          * } else
          */
-        if ($this->getMetaObject()->is($data_sheet->getMetaObject())) {
+         
+        // See if we are prefilling with the same object as the widget is based
+        // on (or a derivative). E.g. if we are prefilling a widget based on FILE, 
+        // we can use FILE and PDF_FILE objects as both are "files", while a
+        // widget based on PDF_FILE cannot be prefilled with simply FILE.
+        // If it's a different object, than try to find some relation wetween them.
+        if ($prefill_object->is($widget_object)) {
             // If we are looking for attributes of the object of this widget, then just return the attribute_alias
             $data_sheet->getColumns()->addFromExpression($this->getAttributeAlias());
         } else {
@@ -102,11 +112,11 @@ class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, i
                 if ($rel_path = $this->getAttribute()->getRelationPath()->toString()) {
                     $rel_parts = RelationPath::relationPathParse($rel_path);
                     if (is_array($rel_parts)) {
-                        $related_obj = $this->getMetaObject();
+                        $related_obj = $widget_object;
                         foreach ($rel_parts as $rel_nr => $rel_part) {
                             $related_obj = $related_obj->getRelatedObject($rel_part);
                             unset($rel_parts[$rel_nr]);
-                            if ($related_obj->isExactly($data_sheet->getMetaObject())) {
+                            if ($related_obj->isExactly($prefill_object)) {
                                 $attr_path = implode(RelationPath::RELATION_SEPARATOR, $rel_parts);
                                 $attr = RelationPath::relationPathAdd($attr_path, $this->getAttribute()->getAlias());
                                 $data_sheet->getColumns()->addFromExpression($attr);
@@ -115,23 +125,26 @@ class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, i
                     }
                     // If the prefill object is not in the widget's relation path, try to find a relation from this widget's
                     // object to the data sheet object and vice versa
-                } // If this widget represents the direct relation attribute, the attribute to display would be the UID of the
-                  // of the related object (e.g. trying to fill the order positions attribute "ORDER" relative to the object
-                  // "ORDER" should result in the attribute UID of ORDER because it holds the same value)
-                elseif ($this->getAttribute()->isRelation() && $this->getAttribute()->getRelation()->getRelatedObject()->is($data_sheet->getMetaObject())) {
+                } elseif ($this->getAttribute()->isRelation() && $prefill_object->is($this->getAttribute()->getRelation()->getRelatedObject())) {
+                    // If this widget represents the direct relation attribute, the attribute to display would be the UID of the
+                    // of the related object (e.g. trying to fill the order positions attribute "ORDER" relative to the object
+                    // "ORDER" should result in the attribute UID of ORDER because it holds the same value)
+                        
                     $data_sheet->getColumns()->addFromExpression($this->getAttribute()->getRelation()->getRelatedObjectKeyAlias());
-                } // If the attribute is not a relation itself, we still can use it for prefills if we find a relation to access
-                  // it from the $data_sheet's object. In order to do this, we need to find relations from the prefill object to
-                  // the object of this widget. However, it does not make sense to use reverse relations because the corresponding
-                  // values would need to get aggregated in the prefill sheet in most cases and we don't have a meaningfull
-                  // aggregator at hand at this time. Direct (not inherited) relations should be preffered. That is, a relation from
-                  // the prefill object to an object, this widget's object extends, can still be used in most cases, but a direct
-                  // relation is safer. Not sure, if inherited relations will work if the extending object has a different data address...
-                else {
+                } else {
+                    // If the attribute is not a relation itself, we still can use it for prefills if we find a relation to access
+                    // it from the $data_sheet's object. In order to do this, we need to find relations from the prefill object to
+                    // the object of this widget. However, it does not make sense to use reverse relations because the corresponding
+                    // values would need to get aggregated in the prefill sheet in most cases and we don't have a meaningfull
+                    // aggregator at hand at this time. Direct (not inherited) relations should be preffered. That is, a relation from
+                    // the prefill object to an object, this widget's object extends, can still be used in most cases, but a direct
+                    // relation is safer. Not sure, if inherited relations will work if the extending object has a different data address...
+                    
+                    
                     // Iterate over all forward relations
                     $inherited_rel = null;
                     $direct_rel = null;
-                    foreach ($data_sheet->getMetaObject()->findRelations($this->getMetaObject()->getId(), Relation::RELATION_TYPE_FORWARD) as $rel) {
+                    foreach ($prefill_object->findRelations($widget_object->getId(), Relation::RELATION_TYPE_FORWARD) as $rel) {
                         if ($rel->isInherited() && ! $inherited_rel) {
                             // Remember the first inherited relation in case there will be no direct relations
                             $inherited_rel = $rel;
@@ -147,8 +160,8 @@ class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, i
                     // If we found a relation to use, add the attribute prefixed with it's relation path to the data sheet
                     if ($direct_rel) {
                         $rel_path = RelationPath::relationPathAdd($rel->getAlias(), $this->getAttribute()->getAlias());
-                        if ($data_sheet->getMetaObject()->hasAttribute($rel_path)) {
-                            $data_sheet->getColumns()->addFromAttribute($data_sheet->getMetaObject()->getAttribute($rel_path));
+                        if ($prefill_object->hasAttribute($rel_path)) {
+                            $data_sheet->getColumns()->addFromAttribute($prefill_object->getAttribute($rel_path));
                         }
                     }
                 }
@@ -173,16 +186,22 @@ class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, i
         return $this->prepareDataSheetToRead($data_sheet);
     }
 
+    /**
+     * A text widget is prefillable if it does not have a value or it's value
+     * is a reference (live reference formula).
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Widgets\AbstractWidget::isPrefillable()
+     */
     protected function isPrefillable()
     {
         return ! ($this->getValue() && ! $this->getValueExpression()->isReference());
-        // return !($this->getValue());
     }
 
     /**
-     * Prefills the input with a value taken from the corresponding column of a given data sheet
-     *
-     * @see \exface\Core\Widgets\AbstractWidget::prefill()
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Widgets\AbstractWidget::doPrefill()
      */
     protected function doPrefill(\exface\Core\Interfaces\DataSheets\DataSheetInterface $data_sheet)
     {
@@ -200,11 +219,12 @@ class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, i
             } else {
                 $value = $data_sheet->getCellValue($col->getName(), 0);
             }
+            // Ignore empty values because otherwise live-references would get overwritten even without a meaningfull prefill value
             if (! is_null($value) && $value != '') {
-                // if empty values are set, live-references get overwritten even without a prefill
                 $this->setValue($value);
             }
         }
+        return;
     }
 
     public function getAggregateFunction()
@@ -239,52 +259,73 @@ class Text extends AbstractWidget implements iShowSingleAttribute, iHaveValue, i
         if (! $this->getAttributeAlias()) {
             return null;
         }
+        
+        if (! $this->getMetaObject()->hasAttribute($this->getAttributeAlias())){
+            throw new WidgetPropertyInvalidValueError($this, 'Attribute "' . $this->getAttributeAlias() . '" specified for Text widget not found for the widget\'s object "' . $this->getMetaObject()->getAliasWithNamespace() . '"!');
+        }
+        
         return $this->getMetaObject()->getAttribute($this->getAttributeAlias());
     }
-
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iShowText::getSize()
+     */
     public function getSize()
     {
         return $this->size;
     }
-
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iShowText::setSize()
+     */
     public function setSize($value)
     {
         $this->size = $value;
         return $this;
     }
-
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iShowText::getStyle()
+     */
     public function getStyle()
     {
         return $this->style;
     }
-
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iShowText::setStyle()
+     */
     public function setStyle($value)
     {
         $this->style = $value;
         return $this;
     }
-
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Widgets\iCanBeAligned::getAlign()
+     */
     public function getAlign()
     {
-        if (! $this->align) {
+        if (! $this->isAlignSet()) {
             if ($this->getDataType()->is(EXF_DATA_TYPE_NUMBER) || $this->getDataType()->is(EXF_DATA_TYPE_PRICE)) {
-                $this->align = EXF_ALIGN_RIGHT;
+                $this->setAlign(EXF_ALIGN_OPPOSITE);
             } elseif ($this->getDataType()->is(EXF_DATA_TYPE_BOOLEAN)) {
-                $this->align = EXF_ALIGN_CENTER;
+                $this->setAlign(EXF_ALIGN_CENTER);
             } else {
-                $this->align = EXF_ALIGN_LEFT;
+                $this->setAlign(EXF_ALIGN_DEFAULT);
             }
         }
-        return $this->align;
-    }
-
-    public function setAlign($value)
-    {
-        if (! defined('EXF_ALIGN_' . mb_strtoupper($value))) {
-            throw new WidgetPropertyInvalidValueError($this, 'Invalid alignment value "' . $value . '": use "left", "rigth" or "center"!');
-        }
-        $this->align = constant('EXF_ALIGN_' . mb_strtoupper($value));
-        return $this;
+        return $this->getAlignDefault();
     }
 
     /**

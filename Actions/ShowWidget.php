@@ -17,6 +17,7 @@ use exface\Core\Factories\WidgetLinkFactory;
 use exface\Core\Exceptions\Actions\ActionConfigurationError;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\Interfaces\Widgets\WidgetLinkInterface;
+use exface\Core\CommonLogic\Constants\Icons;
 
 /**
  * The ShowWidget action is the base for all actions, that render widgets.
@@ -51,7 +52,7 @@ class ShowWidget extends AbstractAction implements iShowWidget
     protected function init()
     {
         parent::init();
-        $this->setIconName('link');
+        $this->setIconName(Icons::EXTERNAL_LINK);
     }
 
     protected function perform()
@@ -64,16 +65,20 @@ class ShowWidget extends AbstractAction implements iShowWidget
     }
 
     /**
-     *
+     * Returns the widget, that this action will show.
+     * 
+     * FIXME Currently this will even return a widget if the action links to another page.
+     * This means, that all linked pages will be loaded when searching for a widget id -
+     * and they will be searched too!!!
+     * 
      * {@inheritdoc}
-     *
      * @see \exface\Core\Interfaces\Actions\iShowWidget::getWidget()
      */
     public function getWidget()
     {
         if (is_null($this->widget)) {
             if ($this->getWidgetUxon()) {
-                $this->widget = WidgetFactory::createFromUxon($this->getCalledOnUiPage(), $this->getWidgetUxon(), $this->getCalledByWidget());
+                $this->widget = WidgetFactory::createFromUxon($this->getCalledOnUiPage(), $this->getWidgetUxon(), $this->getCalledByWidget(), $this->getDefaultWidgetType());
             } elseif ($this->widget_id && ! $this->page_id) {
                 $this->widget = $this->getApp()->getWorkbench()->ui()->getWidget($this->widget_id, $this->getCalledOnUiPage()->getId());
             } elseif ($this->page_id && ! $this->widget_id) {
@@ -84,6 +89,30 @@ class ShowWidget extends AbstractAction implements iShowWidget
             }
         }
         return $this->widget;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Actions\iShowWidget::getDefaultWidgetType()
+     */
+    public function getDefaultWidgetType()
+    {
+        return null;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Actions\iShowWidget::isWidgetDefined()
+     */
+    public function isWidgetDefined()
+    {
+        if (is_null($this->getWidget())){
+            return false;
+        }
+        
+        return true;
     }
 
     /**
@@ -182,7 +211,7 @@ class ShowWidget extends AbstractAction implements iShowWidget
             // Wouldn't it be better to add the context filters to the data sheet or maybe even to the data sheet and the prefill data separately?
             if ($this->getWidget()->getMetaObject()->is($data_sheet->getMetaObject())) {
                 /* @var $condition \exface\Core\CommonLogic\Model\Condition */
-                foreach ($context_conditions as $condition) {
+                foreach ($context_conditions as $condition) {                    
                     /*
                      * if ($this->getWidget() && $condition->getExpression()->getMetaObject()->getId() == $this->getWidget()->getMetaObjectId()){
                      * // If the expressions belong to the same object, as the one being displayed, use them as filters
@@ -192,12 +221,41 @@ class ShowWidget extends AbstractAction implements iShowWidget
                      * } else
                      */
                     if ($condition->getComparator() == EXF_COMPARATOR_IS || $condition->getComparator() == EXF_COMPARATOR_EQUALS || $condition->getComparator() == EXF_COMPARATOR_IN) {
-                        // If it is not the same object, as the one displayed, add the context values as filters
+                        
+                        // Double check to see if the data sheet already has filters over the attribute coming from the context.
+                        // This could cause strange conflicts especially because the filter contest is added as a row, not as another
+                        // filter: i.e. without this code you could not call a page with a filter URL parameter twice in a row with 
+                        // different parameter values.
+                        $filter_conflict = false;
+                        foreach ($data_sheet->getFilters()->getConditions() as $existing){
+                            if ($existing->getExpression()->toString() == $condition->getExpression()->toString()){
+                                $filter_conflict = true;
+                                break;
+                            }
+                        }
+                        if ($filter_conflict) {
+                            continue;
+                        }
+                        
+                        // IDEA do we also need to check for conflicts with rows?
+                        
+                        // Add the filter values as columns to use them in forms
+                        // Sinsce the objects of the widget and the prefill are
+                        // the same, context filters can be used in two different 
+                        // ways: either to prefill filter or to prefill inputs.
+                        // How exactly, depends on the widget, so we put them
+                        // in both places here.
+                        // IDEA Perhaps, we should only place filters in filters
+                        // of the data sheet and change the widget to look in 
+                        // columns as well as in filters...
                         try {
                             $col = $data_sheet->getColumns()->addFromExpression($condition->getExpression());
-                            $col->setValues(array(
-                                $condition->getValue()
-                            ));
+                            // Add the value of the filter (if there) as cell value
+                            if (! is_null($condition->getValue()) && $condition->getValue() !== ''){
+                                $col->setValues(array(
+                                    $condition->getValue()
+                                ));
+                            }
                         } catch (\Exception $e) {
                             // Do nothing if anything goes wrong. After all the context prefills are just an attempt the help
                             // the user. It's not a good Idea to throw a real error here!
@@ -362,7 +420,7 @@ class ShowWidget extends AbstractAction implements iShowWidget
      */
     public function getPageId()
     {
-        if ($this->getWidget()) {
+        if ($this->isWidgetDefined()) {
             return $this->getWidget()->getPageId();
         }
         return $this->page_id;

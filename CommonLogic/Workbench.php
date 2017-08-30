@@ -1,16 +1,12 @@
 <?php
 namespace exface\Core\CommonLogic;
 
-use exface\Core\CommonLogic\EventManager;
-use exface\Core\CommonLogic\Filemanager;
 use exface\Core\CommonLogic\Log\Log;
+use exface\Core\Interfaces\CmsConnectorInterface;
 use exface\Core\utils;
 use exface\Core\Factories\DataConnectorFactory;
 use exface\Core\Factories\CmsConnectorFactory;
 use exface\Core\Factories\AppFactory;
-use exface\Core\CommonLogic\NameResolver;
-use exface\Core\CommonLogic\ContextManager;
-use exface\Core\CommonLogic\DataManager;
 use exface\Core\Factories\ModelLoaderFactory;
 use exface\Core\Factories\EventFactory;
 use exface\Core\Interfaces\Events\EventManagerInterface;
@@ -20,6 +16,8 @@ use exface\Core\Interfaces\DebuggerInterface;
 use exface\Core\CoreApp;
 use exface\Core\Exceptions\InvalidArgumentException;
 use exface\Core\Interfaces\NameResolverInterface;
+use exface\Core\Exceptions\Configuration\ConfigOptionNotFoundError;
+use exface\Core\Interfaces\DataSources\DataManagerInterface;
 
 class Workbench
 {
@@ -48,7 +46,7 @@ class Workbench
 
     private $event_manager = null;
 
-    private $vendor_dir_path = '';
+    private $vendor_dir_path = null;
 
     private $installation_path = null;
 
@@ -60,18 +58,18 @@ class Workbench
             require_once 'Php5Compatibility.php';
         }
         
-        // Determine the absolute path to the vendor folder
-        $this->vendor_dir_path = dirname(__FILE__) . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..';
-        
-        // Init the class loader
-        require_once 'splClassLoader.php';
-        $classLoader = new \SplClassLoader(null, array(
-            $this->vendor_dir_path
-        ));
-        $classLoader->register();
-        
         // Init composer autoload
-        require_once ($this->vendor_dir_path . DIRECTORY_SEPARATOR . 'autoload.php');
+        require_once ($this->getVendorDirPath() . DIRECTORY_SEPARATOR . 'autoload.php');
+        
+        // If the current config uses the live autoloader, load it right next
+        // to the one from composer.
+        if ($this->getConfig()->getOption('DEBUG.LIVE_CLASS_AUTOLOADER')){
+            require_once 'splClassLoader.php';
+            $classLoader = new \SplClassLoader(null, array(
+                $this->getVendorDirPath()
+            ));
+            $classLoader->register();
+        }
         
         // Load the internal constants file
         require_once ('Constants.php');
@@ -118,10 +116,14 @@ class Workbench
         $model_loader->setDataConnection($model_connection);
         $this->model()->setModelLoader($model_loader);
         
-        // load the context
+        // Load the context
         $this->context = new ContextManager($this);
         
+        // Now the workbench is fully loaded and operational
         $this->started = true;
+        
+        // Finally load the autoruns
+        $this->autorun();
     }
 
     /**
@@ -151,7 +153,7 @@ class Workbench
      */
     public function getConfig()
     {
-        return $this->getApp('exface.Core')->getConfig();
+        return $this->getCoreApp()->getConfig();
     }
 
     public function model()
@@ -170,7 +172,7 @@ class Workbench
 
     /**
      *
-     * @return CMSInterface
+     * @return CmsConnectorInterface
      */
     public function getCMS()
     {
@@ -179,7 +181,7 @@ class Workbench
 
     /**
      *
-     * @return DataManager
+     * @return DataManagerInterface
      */
     public function data()
     {
@@ -305,7 +307,7 @@ class Workbench
     /**
      * Get the utilities class
      *
-     * @return \Workbench\Core\utils
+     * @return utils
      */
     public function utils()
     {
@@ -335,9 +337,24 @@ class Workbench
     public function getInstallationPath()
     {
         if (is_null($this->installation_path)) {
-            $this->installation_path = Filemanager::pathNormalize($this->vendor_dir_path . DIRECTORY_SEPARATOR . '..', DIRECTORY_SEPARATOR);
+            // If the config overrides the installation path, use the config value, otherwise go one level up from the vendor folder.
+            if ($this->getConfig()->hasOption('FOLDERS.INSTALLATION_PATH_ABSOLUTE') && $installation_path = $this->getConfig()->getOption("FOLDERS.INSTALLATION_PATH_ABSOLUTE")) {
+                // NOTE: overriding the installation path in the config will also change the vendor path!!!
+                $this->installation_path = $installation_path;
+                $this->vendor_dir_path = $installation_path . DIRECTORY_SEPARATOR . Filemanager::FOLDER_NAME_VENDOR;
+            } else {
+                $this->installation_path = Filemanager::pathNormalize($this->getVendorDirPath() . DIRECTORY_SEPARATOR . '..', DIRECTORY_SEPARATOR);
+            }
         }
         return $this->installation_path;
+    }
+    
+    private function getVendorDirPath()
+    {
+        if (is_null($this->vendor_dir_path)){
+            $this->vendor_dir_path = dirname(__FILE__) . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..';
+        }
+        return $this->vendor_dir_path;
     }
 
     /**
@@ -388,6 +405,66 @@ class Workbench
         // Clear main cache folder
         $filemanager = $this->filemanager();
         $filemanager->emptyDir($filemanager->getPathToCacheFolder());
+        return $this;
+    }
+    
+    /**
+     * Makes the given app get automatically instantiated every time the workbench
+     * is started.
+     * 
+     * The app will be added to the AUTORUN_APPS config option of the installation
+     * scope. 
+     * 
+     * NOTE: Autorun apps can be temporarily disabled in the config by changing 
+     * their respective value to FALSE.
+     * 
+     * @param AppInterface $app
+     * @return \exface\Core\CommonLogic\Workbench
+     */
+    public function addAutorunApp(AppInterface $app)
+    {
+        $autoruns = $this->getConfig()->getOption('AUTORUN_APPS');
+        $autoruns->setProperty($app->getAliasWithNamespace(), true);
+        $this->getConfig()->setOption('AUTORUN_APPS', $autoruns, AppInterface::CONFIG_SCOPE_INSTALLATION);
+        return $this;
+    }
+    
+    /**
+     * Removes the give app from the AUTORUN_APPS config option in the installation scope.
+     * 
+     * NOTE: this will completely the remove the app from the list. To disable
+     * the autorun temporarily, it's flag-value in the config can be set to FALSE.
+     * 
+     * @param AppInterface $app
+     * @return \exface\Core\CommonLogic\Workbench
+     */
+    public function removeAutorunApp(AppInterface $app)
+    {
+        $autoruns = $this->getConfig()->getOption('AUTORUN_APPS');
+        $autoruns->unsetProperty($app->getAliasWithNamespace());
+        $this->getConfig()->setOption('AUTORUN_APPS', $autoruns, AppInterface::CONFIG_SCOPE_INSTALLATION);
+        return $this;
+    }
+    
+    /**
+     * Instantiates all apps in the AUTORUN_APPS config option.
+     * 
+     * @return \exface\Core\CommonLogic\Workbench
+     */
+    protected function autorun()
+    {
+        try {
+            $autoruns = $this->getConfig()->getOption('AUTORUN_APPS');
+        } catch (ConfigOptionNotFoundError $e){
+            $this->getLogger()->logException($e);
+        }
+        
+        foreach ($autoruns as $app_alias => $flag){
+            if ($flag){
+                $this->getApp($app_alias);
+            }
+        }
+        
         return $this;
     }
 }

@@ -7,6 +7,9 @@ use exface\Core\Interfaces\Widgets\iCanBeRequired;
 use exface\Core\Interfaces\Widgets\iHaveValue;
 use exface\Core\Interfaces\Widgets\iTakeInput;
 use exface\Core\Interfaces\Widgets\iShowSingleAttribute;
+use exface\Core\Exceptions\UnexpectedValueException;
+use exface\Core\CommonLogic\Model\Condition;
+use exface\Core\Exceptions\Widgets\WidgetPropertyInvalidValueError;
 
 /**
  * A filter is a wrapper widget, which typically consist of one or more input widgets.
@@ -34,10 +37,10 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      *
      * @return iTakeInput
      */
-    public function getWidget()
+    public function getInputWidget()
     {
-        if (! $this->widget) {
-            $this->setWidget($this->getPage()->createWidget('Input', $this));
+        if (is_null($this->widget)) {
+            $this->setInputWidget($this->getPage()->createWidget('Input', $this));
         }
         return $this->widget;
     }
@@ -48,7 +51,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      * @param iTakeInput|\stdClass $widget_or_uxon_object            
      * @return \exface\Core\Widgets\Filter
      */
-    public function setWidget($widget_or_uxon_object)
+    public function setInputWidget($widget_or_uxon_object)
     {
         $page = $this->getPage();
         $this->widget = WidgetFactory::createFromAnything($page, $widget_or_uxon_object, $this);
@@ -74,7 +77,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
             case EXF_COMPARATOR_GREATER_THAN_OR_EQUALS:
             case EXF_COMPARATOR_LESS_THAN:
             case EXF_COMPARATOR_LESS_THAN_OR_EQUALS:
-                $this->widget->setCaption($this->getWidget()->getCaption() . ' (' . $this->getComparator() . ')');
+                $this->widget->setCaption($this->getInputWidget()->getCaption() . ' (' . $this->getComparator() . ')');
                 break;
         }
         
@@ -108,7 +111,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
     public function getChildren()
     {
         return array(
-            $this->getWidget()
+            $this->getInputWidget()
         );
     }
 
@@ -118,7 +121,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function getAttribute()
     {
-        return $this->getWidget()->getAttribute();
+        return $this->getInputWidget()->getAttribute();
     }
 
     /**
@@ -127,7 +130,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function getAttributeAlias()
     {
-        return $this->getWidget()->getAttributeAlias();
+        return $this->getInputWidget()->getAttributeAlias();
     }
 
     /**
@@ -136,7 +139,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function setAttributeAlias($value)
     {
-        $this->getWidget()->setAttributeAlias($value);
+        $this->getInputWidget()->setAttributeAlias($value);
         return $this;
     }
 
@@ -148,7 +151,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function getValue()
     {
-        return $this->getWidget()->getValue();
+        return $this->getInputWidget()->getValue();
     }
 
     /**
@@ -159,7 +162,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function getValueExpression()
     {
-        return $this->getWidget()->getValueExpression();
+        return $this->getInputWidget()->getValueExpression();
     }
 
     /**
@@ -170,7 +173,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function setValue($value)
     {
-        $this->getWidget()->setValue($value);
+        $this->getInputWidget()->setValue($value);
         return $this;
     }
 
@@ -182,7 +185,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function getCaption()
     {
-        return $this->getWidget()->getCaption();
+        return $this->getInputWidget()->getCaption();
     }
 
     /**
@@ -196,7 +199,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function __call($name, $arguments)
     {
-        $widget = $this->getWidget();
+        $widget = $this->getInputWidget();
         return call_user_func_array(array(
             $widget,
             $name
@@ -210,9 +213,14 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
 
     public function setComparator($value)
     {
-        if (! $value)
+        if (! $value){
             return $this;
-        $this->comparator = $value;
+        }
+        try {
+            $this->comparator = Condition::sanitizeComparator($value);
+        } catch (UnexpectedValueException $e){
+            throw new WidgetPropertyInvalidValueError($this, 'Invalid comparator "' . $value . '" used for filter widget!', '6W1SD52', $e);
+        }
         return $this;
     }
 
@@ -227,16 +235,16 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
     public function setRequired($value)
     {
         $this->required = $value;
-        if ($this->getWidget() && $this->getWidget() instanceof iCanBeRequired) {
-            $this->getWidget()->setRequired($value);
+        if ($this->getInputWidget() && $this->getInputWidget() instanceof iCanBeRequired) {
+            $this->getInputWidget()->setRequired($value);
         }
         return $this;
     }
 
     public function setDisabled($value)
     {
-        if ($this->getWidget()) {
-            $this->getWidget()->setDisabled($value);
+        if ($this->getInputWidget()) {
+            $this->getInputWidget()->setDisabled($value);
         }
         return parent::setDisabled($value);
     }
@@ -249,7 +257,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function getEmptyText()
     {
-        return $this->getWidget()->getEmptyText();
+        return $this->getInputWidget()->getEmptyText();
     }
 
     /**
@@ -260,7 +268,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
      */
     public function setEmptyText($value)
     {
-        $this->getWidget()->setEmptyText($value);
+        $this->getInputWidget()->setEmptyText($value);
         return $this;
     }
 
@@ -269,7 +277,7 @@ class Filter extends Container implements iCanBeRequired, iShowSingleAttribute
         $uxon = parent::exportUxonObject();
         $uxon->setProperty('comparator', $this->getComparator());
         $uxon->setProperty('required', $this->isRequired());
-        $uxon->setProperty('widget', $this->getWidget()->exportUxonObject());
+        $uxon->setProperty('widget', $this->getInputWidget()->exportUxonObject());
         return $uxon;
     }
 }

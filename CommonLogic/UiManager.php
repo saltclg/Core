@@ -5,7 +5,7 @@ use exface\Core\Widgets\AbstractWidget;
 use exface\Core\Interfaces\WidgetInterface;
 use exface\Core\Factories\UiPageFactory;
 use exface\Core\Interfaces\TemplateInterface;
-use exface\Core\Interfaces\UiPageInterface;
+use exface\Core\Interfaces\Model\UiPageInterface;
 use exface\Core\Interfaces\UiManagerInterface;
 use exface\Core\Factories\TemplateFactory;
 use exface\Core\Exceptions\UiPageFoundError;
@@ -126,7 +126,7 @@ class UiManager implements UiManagerInterface
 
     /**
      *
-     * @return \exface\Core\Interfaces\UiPageInterface
+     * @return \exface\Core\Interfaces\Model\UiPageInterface
      */
     public function getPageCurrent()
     {
@@ -136,8 +136,8 @@ class UiManager implements UiManagerInterface
     public function getTemplateFromRequest()
     {
         if (is_null($this->base_template)) {
-            // $this->base_template = $this->getTemplate($this->getWorkbench()->getConfig()->getOption('DEFAULT_UI_TEMPLATE'));
-            $this->base_template = $this->getWorkbench()->getConfig()->getOption('DEFAULT_UI_TEMPLATE');
+            // $this->base_template = $this->getTemplate($this->getWorkbench()->getConfig()->getOption('TEMPLATES.DEFAULT_UI_TEMPLATE'));
+            $this->base_template = $this->getWorkbench()->getConfig()->getOption('TEMPLATES.DEFAULT_UI_TEMPLATE');
         }
         return $this->getTemplate($this->base_template);
     }

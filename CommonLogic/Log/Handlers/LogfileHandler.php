@@ -13,6 +13,8 @@ use Monolog\Formatter\NormalizerFormatter;
 use Monolog\Handler\FingersCrossed\ErrorLevelActivationStrategy;
 use Monolog\Handler\FingersCrossedHandler;
 use Monolog\Logger;
+use exface\Core\CommonLogic\Log\Helpers\LogHelper;
+use exface\Core\CommonLogic\Workbench;
 
 class LogfileHandler extends AbstractMonologHandler implements FileHandlerInterface
 {
@@ -49,7 +51,7 @@ class LogfileHandler extends AbstractMonologHandler implements FileHandlerInterf
      * @throws \Exception If a missing directory is not buildable
      * @throws \InvalidArgumentException If stream is not a resource or string
      */
-    function __construct($name, $filename, $workbench, $level = LoggerInterface::DEBUG, $bubble = true, $filePermission = null, $useLocking = false)
+    function __construct($name, $filename, Workbench $workbench, $level = LoggerInterface::DEBUG, $bubble = true, $filePermission = null, $useLocking = false)
     {
         $this->name = $name;
         $this->filename = $filename;
@@ -72,16 +74,18 @@ class LogfileHandler extends AbstractMonologHandler implements FileHandlerInterf
         // create csv log handler and set formatter with customized date format
         $csvHandler = new CsvHandler($this->filename, $this->level, $this->bubble, $this->filePermission,
             $this->useLocking);
-        $csvHandler->setFormatter(new NormalizerFormatter("Y-m-d H:i:s-v")); // with milliseconds
+        $csvHandler->setFormatter(new NormalizerFormatter("Y-m-d H:i:s.v")); // with milliseconds
 
         $persistLogLevel = $this->workbench->getConfig()->getOption('LOG.PERSIST_LOG_LEVEL');
+        $passthroughLevel = LogHelper::compareLogLevels($this->level, $this->workbench->getConfig()->getOption('LOG.PASSTHROUGH_LOG_LEVEL')) < 0 ? $this->level : $this->workbench->getConfig()->getOption('LOG.PASSTHROUGH_LOG_LEVEL');
+
         $fcHandler = new FingersCrossedHandler(
             $csvHandler,
             new ErrorLevelActivationStrategy(Logger::toMonologLevel($persistLogLevel)),
             0,
             true,
             true,
-            Logger::toMonologLevel($this->level)
+            $passthroughLevel
         );
 
         $logger->pushHandler($fcHandler);
@@ -98,5 +102,15 @@ class LogfileHandler extends AbstractMonologHandler implements FileHandlerInterf
         unset($context['exception']);
 
         parent::handle($level, $message, $context, $sender);
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\ExfaceClassInterface::getWorkbench()
+     */
+    public function getWorkbench()
+    {
+        return $this->workbench;
     }
 }

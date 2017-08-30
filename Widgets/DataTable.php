@@ -1,66 +1,66 @@
 <?php
 namespace exface\Core\Widgets;
 
-use exface\Core\Interfaces\Widgets\iHaveTopToolbar;
-use exface\Core\Interfaces\Widgets\iHaveBottomToolbar;
 use exface\Core\Factories\WidgetFactory;
 use exface\Core\Interfaces\Widgets\iFillEntireContainer;
 use exface\Core\Interfaces\Widgets\iSupportMultiSelect;
+use exface\Core\CommonLogic\Model\Attribute;
+use exface\Core\CommonLogic\UxonObject;
+use exface\Core\Interfaces\Widgets\iHaveContextMenu;
 
 /**
  * Renders data as a table with filters, columns, and toolbars.
  * Columns of the DataTable can also be made editable.
  *
  * Example:
- * {
- * "id": "attributes",
- * "widget_type": "DataTable",
- * "object_alias": "exface.Core.ATTRIBUTE",
- * "filters": [
- * {
- * "attribute_alias": "OBJECT"
- * },
- * {
- * "attribute_alias": "OBJECT__DATA_SOURCE"
- * }
- * ],
- * "columns": [
- * {
- * "attribute_alias": "OBJECT__LABEL"
- * },
- * {
- * "attribute_alias": "LABEL"
- * },
- * {
- * "attribute_alias": "ALIAS"
- * },
- * {
- * "attribute_alias": "RELATED_OBJ__LABEL",
- * "caption": "Relation to"
- * }
- * ],
- * "buttons": [
- * {
- * "action_alias": "exface.Core.UpdateData"
- * },
- * {
- * "action_alias": "exface.Core.CreateObjectDialog",
- * "caption": "Neu"
- * },
- * {
- * "action_alias": "exface.Core.EditObjectDialog",
- * "bind_to_double_click": true
- * },
- * {
- * "action_alias": "exface.Core.DeleteObject"
- * }
- * ]
- * }
+ *  {
+ *      "id": "attributes",
+ *      "widget_type": "DataTable",
+ *      "object_alias": "exface.Core.ATTRIBUTE",
+ *      "filters": [
+ *          {
+ *              "attribute_alias": "OBJECT"
+ *          },
+ *          {
+ *              "attribute_alias": "OBJECT__DATA_SOURCE"
+ *          }
+ *      ],
+ *      "columns": [
+ *          {
+ *              "attribute_alias": "OBJECT__LABEL"
+ *          },
+ *          {
+ *              "attribute_alias": "LABEL"
+ *          },
+ *          {
+ *              "attribute_alias": "ALIAS"
+ *          },
+ *          {
+ *              "attribute_alias": "RELATED_OBJ__LABEL",
+ *              "caption": "Relation to"
+ *          }
+ *      ],
+ *      "buttons": [
+ *          {
+ *              "action_alias": "exface.Core.UpdateData"
+ *          },
+ *          {
+ *              "action_alias": "exface.Core.CreateObjectDialog"
+ *          },
+ *          {
+ *              "action_alias": "exface.Core.EditObjectDialog",
+ *              "bind_to_double_click": true
+ *          },
+ *          {
+ *              "action_alias": "exface.Core.DeleteObject"
+ *          }
+ *      ]
+ *  }
  *
  * @author Andrej Kabachnik
  *        
  */
-class DataTable extends Data implements iHaveTopToolbar, iHaveBottomToolbar, iFillEntireContainer, iSupportMultiSelect
+class DataTable extends Data implements iFillEntireContainer, iSupportMultiSelect, iHaveContextMenu
 {
 
     private $show_filter_row = false;
@@ -77,10 +77,6 @@ class DataTable extends Data implements iHaveTopToolbar, iHaveBottomToolbar, iFi
 
     private $auto_row_height = true;
 
-    private $hide_toolbar_top = false;
-
-    private $hide_toolbar_bottom = false;
-
     private $row_details_container = null;
 
     private $row_details_action = 'exface.Core.ShowWidget';
@@ -94,6 +90,8 @@ class DataTable extends Data implements iHaveTopToolbar, iHaveBottomToolbar, iFi
     private $context_menu_enabled = true;
 
     private $header_sort_multiple = false;
+
+    private $context_menu = null;
 
     function hasRowDetails()
     {
@@ -321,65 +319,6 @@ class DataTable extends Data implements iHaveTopToolbar, iHaveBottomToolbar, iFi
         return $this;
     }
 
-    public function getHideToolbarTop()
-    {
-        return $this->hide_toolbar_top;
-    }
-
-    /**
-     * Set to TRUE to hide the top toolbar or FALSE to show it.
-     *
-     * @uxon-property hide_toolbar_top
-     * @uxon-type boolean
-     *
-     * @see \exface\Core\Interfaces\Widgets\iHaveTopToolbar::setHideToolbarTop()
-     */
-    public function setHideToolbarTop($value)
-    {
-        $this->hide_toolbar_top = \exface\Core\DataTypes\BooleanDataType::parse($value);
-        return $this;
-    }
-
-    public function getHideToolbarBottom()
-    {
-        return $this->hide_toolbar_bottom;
-    }
-
-    /**
-     * Set to TRUE to hide the bottom toolbar or FALSE to show it.
-     *
-     * @uxon-property hide_toolbar_bottom
-     * @uxon-type boolean
-     *
-     * @see \exface\Core\Interfaces\Widgets\iHaveTopToolbar::setHideToolbarTop()
-     */
-    public function setHideToolbarBottom($value)
-    {
-        $this->hide_toolbar_bottom = \exface\Core\DataTypes\BooleanDataType::parse($value);
-        return $this;
-    }
-
-    public function getHideToolbars()
-    {
-        return ($this->getHideToolbarTop() && $this->getHideToolbarBottom());
-    }
-
-    /**
-     * Set to TRUE to hide the all toolbars.
-     * Use hide_toolbar_top and hide_toolbar_bottom to control toolbar individually.
-     *
-     * @uxon-property hide_toolbars
-     * @uxon-type boolean
-     *
-     * @see \exface\Core\Interfaces\Widgets\iHaveTopToolbar::setHideToolbarTop()
-     */
-    public function setHideToolbars($value)
-    {
-        $this->setHideToolbarTop($value);
-        $this->setHideToolbarBottom($value);
-        return $this;
-    }
-
     public function getShowRowNumbers()
     {
         return $this->show_row_numbers;
@@ -531,7 +470,7 @@ class DataTable extends Data implements iHaveTopToolbar, iHaveBottomToolbar, iFi
      */
     public function setValuesFromArray(array $values)
     {
-        $this->setValue(implode(EXF_LIST_SEPARATOR, $values));
+        $this->setValue(implode($this->getUidColumn()->getAttribute()->getValueListDelimiter(), $values));
         return $this;
     }
 
@@ -560,6 +499,61 @@ class DataTable extends Data implements iHaveTopToolbar, iHaveBottomToolbar, iFi
     {
         $this->multi_select_all_selected = $true_or_false ? true : false;
         return $this;
+    }
+
+    /**
+     * 
+     * @return DataItemMenu
+     */
+    public function getContextMenu()
+    {
+        if (is_null($this->context_menu)) {
+            $this->context_menu = WidgetFactory::create($this->getPage(), 'DataItemMenu', $this);
+        }
+        return $this->context_menu;
+    }
+
+    /**
+     * 
+     * @param DataItemMenu|UxonObject $widget_or_uxon_object
+     * @return \exface\Core\Widgets\DataTable
+     */
+    public function setContextMenu($widget_or_uxon_object)
+    {
+        if ($widget_or_uxon_object instanceof DataItemMenu) {
+            $menu = $widget_or_uxon_object;
+        } elseif ($widget_or_uxon_object instanceof UxonObject) {
+            if (! $widget_or_uxon_object->hasProperty('widget_type')) {
+                $widget_or_uxon_object->setProperty('widget_type', 'DataItemMenu');
+            }
+            $menu = WidgetFactory::createFromUxon($this->getPage(), $widget_or_uxon_object, $this);
+        }
+        $this->context_menu = $menu;
+        return $this;
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Widgets\Data::getToolbars()
+     */
+    public function getToolbars()
+    {
+        $toolbars = parent::getToolbars();
+        if ($this->hasAggregations()) {
+            $toolbars[0]->setIncludeGlobalActions(false)->setIncludeObjectBasketActions(false);
+        }
+        return $toolbars;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Widgets\Data::getConfiguratorWidgetType()
+     */
+    public function getConfiguratorWidgetType()
+    {
+        return 'DataTableConfigurator';
     }
 }
 ?>

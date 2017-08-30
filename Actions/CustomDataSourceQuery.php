@@ -8,6 +8,7 @@ use exface\Core\CommonLogic\Model\Object;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
 use exface\Core\Exceptions\Actions\ActionInputMissingError;
 use exface\Core\Exceptions\Actions\ActionInputInvalidObjectError;
+use exface\Core\CommonLogic\Constants\Icons;
 
 class CustomDataSourceQuery extends AbstractAction implements iRunDataSourceQuery
 {
@@ -21,7 +22,7 @@ class CustomDataSourceQuery extends AbstractAction implements iRunDataSourceQuer
     protected function init()
     {
         parent::init();
-        $this->setIconName('gears');
+        $this->setIconName(Icons::COGS);
     }
 
     /**
@@ -86,7 +87,7 @@ class CustomDataSourceQuery extends AbstractAction implements iRunDataSourceQuer
     protected function perform()
     {
         $counter = 0;
-        $data_sheet = $this->getInputDataSheet()->copy();
+        $data_sheet = $this->getInputDataSheet();
         // Check if the action is aplicable to the input object
         if ($this->getAplicableToObjectAlias()) {
             if (! $data_sheet->getMetaObject()->is($this->getAplicableToObjectAlias())) {

@@ -5,6 +5,7 @@ use exface\Core\Widgets\AbstractWidget;
 use exface\Core\Widgets\Dialog;
 use exface\Core\Interfaces\WidgetInterface;
 use exface\Core\Widgets\Button;
+use exface\Core\CommonLogic\Constants\Icons;
 
 class EditObjectDialog extends ShowObjectDialog
 {
@@ -14,7 +15,7 @@ class EditObjectDialog extends ShowObjectDialog
     protected function init()
     {
         parent::init();
-        $this->setIconName('edit');
+        $this->setIconName(Icons::PENCIL_SQUARE_O);
         $this->setSaveActionAlias('exface.Core.UpdateData');
         $this->setShowOnlyEditableAttributes(true);
         $this->setDisableEditing(false);
@@ -43,13 +44,14 @@ class EditObjectDialog extends ShowObjectDialog
     protected function createDialogWidget(AbstractWidget $contained_widget = NULL)
     {
         $dialog = parent::createDialogWidget($contained_widget);
-        $page = $this->getCalledOnUiPage();
         // TODO add save button via followup actions in the init() method instead of the button directly
         /* @var $save_button \exface\Core\Widgets\Button */
-        $save_button = $page->createWidget('DialogButton', $dialog);
-        $save_button->setActionAlias($this->getSaveActionAlias());
-        $save_button->setCaption($this->getWorkbench()->getCoreApp()->getTranslator()->translate("ACTION.EDITOBJECTDIALOG.SAVE_BUTTON"));
-        $save_button->setVisibility(EXF_WIDGET_VISIBILITY_PROMOTED);
+        $save_button = $dialog->createButton();
+        $save_button
+            ->setActionAlias($this->getSaveActionAlias())
+            ->setCaption($this->getWorkbench()->getCoreApp()->getTranslator()->translate("ACTION.EDITOBJECTDIALOG.SAVE_BUTTON"))
+            ->setVisibility(EXF_WIDGET_VISIBILITY_PROMOTED)
+            ->setAlign(EXF_ALIGN_OPPOSITE);
         // Make the save button refresh the same widget as the Button showing the dialog would do
         if ($this->getCalledByWidget() instanceof Button) {
             $save_button->setRefreshWidgetLink($this->getCalledByWidget()->getRefreshWidgetLink());
