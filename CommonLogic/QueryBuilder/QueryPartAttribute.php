@@ -5,6 +5,7 @@ use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\Model\RelationPath;
 use exface\Core\CommonLogic\DataSheets\DataAggregation;
 use exface\Core\Interfaces\Model\AggregatorInterface;
+use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 
 class QueryPartAttribute extends QueryPart
 {
@@ -12,6 +13,8 @@ class QueryPartAttribute extends QueryPart
     private $aggregator;
 
     private $used_relations = null;
+    
+    private $placeholders = null;
 
     function __construct($alias, AbstractQueryBuilder $query)
     {
@@ -27,6 +30,36 @@ class QueryPartAttribute extends QueryPart
             $this->aggregator = $aggr;
         }
     }
+    
+    public function hasPlaceholdersInDataAddress()
+    {
+        return count($this->getPlaceholdersInDataAddress()) > 0 ? true : false;
+    }
+    
+    public function getPlaceholdersInDataAddress()
+    {
+        if (is_null($this->placeholders)){
+            // Get all placeholders from the data address
+            $phs = $this->getWorkbench()->utils()->findPlaceholdersInString($this->getAttribute()->getDataAddress());
+            // Filter away static placeholders starting with "~" (e.g. "~alias").
+            $this->placeholders = array_filter($phs, function($ph){return substr($ph, 0, 1) !== '~';});
+        }
+        return $this->placeholders;
+    }
+    
+    public function getPlaceholderQueryParts()
+    {
+        $qparts = [];
+        foreach ($this->getPlaceholdersInDataAddress() as $ph){
+            try {
+                $this->getQuery()->getMainObject()->getAttribute(RelationPath::relationPathAdd($this->getAttribute()->getRelationPath()->toString(), $ph));
+            } catch (MetaAttributeNotFoundError $e){
+                throw new QueryBuilderException('Cannot use placeholder [#' . $ph . '#] in attribute "' . $this->getAttribute()->getAliasWithRelationPath() . '": no matching attribute found for query base object ' . $this->getQuery()->getMainObject()->getAliasWithNamespace() . '!', null, $e);
+            }
+            $qparts[] = new self($ph, $this->getQuery());
+        }
+        return $qparts;
+    }
 
     /**
      *
@@ -39,24 +72,15 @@ class QueryPartAttribute extends QueryPart
         if (is_array($this->used_relations)) {
             $rels = $this->used_relations;
         } else {
-            // fetch relations
-            // first make sure, the attribute has a relation path (otherwise we do not need to to anything
-            if ($this->getAttribute()->getRelationPath()->toString()) {
-                // split the path in case it contains multiple relations
-                $rel_aliases = RelationPath::relationPathParse($this->getAttribute()->getRelationPath()->toString());
-                // if it is one relation only, use it
-                if (! $rel_aliases && $this->getAttribute()->getRelationPath()->toString())
-                    $rel_aliases[] = $this->getAttribute()->getRelationPath()->toString();
-                // iterate through the found relations
-                if ($rel_aliases) {
-                    $last_alias = '';
-                    foreach ($rel_aliases as $alias) {
-                        $rels[$last_alias . $alias] = $this->getQuery()->getMainObject()->getRelation($last_alias . $alias);
-                        $last_alias .= $alias . RelationPath::getRelationSeparator();
-                    }
-                }
+            // Get relations of the attribute itself
+            $rels = $this->getUsedRelationsFromPath($this->getAttribute()->getRelationPath());
+            
+            // Add relations from placeholders
+            foreach ($this->getPlaceholderQueryParts() as $qpart){
+                $rels = array_merge($rels, $this->getUsedRelationsFromPath($qpart->getAttribute()->getRelationPath()));
             }
-            // cache the result
+            
+            // Cache the result
             $this->used_relations = $rels;
         }
         
@@ -69,6 +93,18 @@ class QueryPartAttribute extends QueryPart
             }
         }
         
+        return $rels;
+    }
+    
+    protected function getUsedRelationsFromPath(RelationPath $relation_path)
+    {
+        $rels = [];
+        $last_alias = '';
+        foreach ($relation_path->getRelations() as $rel) {
+            $alias = $rel->getAlias();
+            $rels[$last_alias . $alias] = $this->getQuery()->getMainObject()->getRelation($last_alias . $alias);
+            $last_alias .= $alias . RelationPath::getRelationSeparator();
+        }
         return $rels;
     }
 

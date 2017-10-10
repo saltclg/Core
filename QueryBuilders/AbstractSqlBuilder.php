@@ -966,16 +966,23 @@ abstract class AbstractSqlBuilder extends AbstractQueryBuilder
                 $joins[$right_table_alias] = "\n LEFT JOIN " . str_replace('[#~alias#]', $right_table_alias, $this->getMainObject()->getDataAddress()) . ' ' . $right_table_alias . ' ON ' . $left_table_alias . '.' . $this->getMainObject()->getUidAttributeAlias() . ' = ' . $right_table_alias . '.' . $this->getMainObject()->getUidAttributeAlias();
             } else {
                 // In most cases we will build joins for attributes of related objects.
-                $left_table_alias = $this->getShortAlias(($left_table_alias ? $left_table_alias : $this->getMainObject()->getAlias()) . $this->getQueryId());
-                $left_obj = $this->getMainObject();
+                $last_alias = '';
+                $left_table_alias_start = $this->getShortAlias(($left_table_alias ? $left_table_alias : $this->getMainObject()->getAlias()) . $this->getQueryId());
+                $left_object_start = $this->getMainObject();
                 foreach ($rels as $alias => $rel) {
                     if ($rel->isForwardRelation()) {
+                        if (! $last_alias || ! StringDataType::startsWith($alias, $last_alias . RelationPath::getRelationSeparator())){
+                            $left_table_alias = $left_table_alias_start;
+                            $left_obj = $left_object_start;
+                        }
                         $right_table_alias = $this->getShortAlias($alias . $this->getQueryId());
                         $right_obj = $this->getMainObject()->getRelatedObject($alias);
                         // generate the join sql
                         $left_join_on = $this->buildSqlJoinSide($left_obj->getAttribute($rel->getForeignKeyAlias())->getDataAddress(), $left_table_alias);
                         $right_join_on = $this->buildSqlJoinSide($rel->getRelatedObjectKeyAttribute()->getDataAddress(), $right_table_alias);
                         $joins[$right_table_alias] = "\n " . $rel->getJoinType() . ' JOIN ' . str_replace('[#~alias#]', $right_table_alias, $right_obj->getDataAddress()) . ' ' . $right_table_alias . ' ON ' . $left_join_on . ' = ' . $right_join_on;
+                        // remember last alias
+                        $last_alias = $alias;                        
                         // continue with the related object
                         $left_table_alias = $right_table_alias;
                         $left_obj = $right_obj;
