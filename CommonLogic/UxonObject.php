@@ -8,11 +8,34 @@ use exface\Core\Exceptions\LogicException;
 
 class UxonObject implements \IteratorAggregate
 {
-    private $array = [];
+    private $array = null;
     
-    public function __construct(array $properties = [])
+    private $json_string = null;
+    
+    public function __construct($array_or_string = null)
     {
-        $this->array = $properties;
+        if (is_array($array_or_string)){
+            $this->array = $array_or_string;
+        } elseif (is_string($array_or_string)){
+            $this->json_string = $array_or_string;
+        }
+    }
+    
+    protected function &getDataArray()
+    {
+        if (is_null($this->array)) {
+            if (! is_null($this->json_string)) {
+                $array = json_decode($this->json_string, true);
+                if (is_array($array)){
+                    $this->array = $array;
+                } else {
+                    $this->array = [];
+                }
+            } else {
+                $this->array = [];
+            }
+        }
+        return $this->array;
     }
 
     /**
@@ -22,12 +45,17 @@ class UxonObject implements \IteratorAggregate
      */
     public function isEmpty()
     {
-        return empty($this->array) ? true : false;
+        if (is_null($this->array)){
+            if (empty($this->json_string) || $this->json_string === '{}'){
+                return true;
+            }
+        }
+        return empty($this->getDataArray()) ? true : false;
     }
     
     public function isPropertyEmpty($property_name)
     {
-        return empty($this->array[$property_name]) ? true : false;
+        return empty($this->getDataArray()[$property_name]) ? true : false;
     }
 
     /**
@@ -48,14 +76,9 @@ class UxonObject implements \IteratorAggregate
      * @param string $uxon            
      * @return UxonObject
      */
-    public static function fromJson($uxon)
+    public static function fromJson($string)
     {
-        $array = json_decode($uxon, true);
-        if (is_array($array)){
-            return static::fromArray($array);
-        } else {
-            return new self();
-        }
+        return new self($string);
     }
 
     /**
@@ -96,7 +119,7 @@ class UxonObject implements \IteratorAggregate
      */
     public function getProperty($name)
     {
-        $val = $this->array[$name];
+        $val = $this->getDataArray()[$name];
         return is_array($val) ? new self($val) : $val;
     }
 
@@ -107,7 +130,11 @@ class UxonObject implements \IteratorAggregate
      */
     public function hasProperty($name)
     {
-        return array_key_exists($name, $this->array);
+        if ($this->isEmpty()){
+            return false;
+        }
+        
+        return array_key_exists($name, $this->getDataArray());
     }
 
     /**
@@ -118,10 +145,14 @@ class UxonObject implements \IteratorAggregate
      */
     public function findPropertyKey($name, $case_sensitive = false)
     {
+        if ($this->isEmpty()){
+            return false;
+        }
+        
         if ($this->hasProperty($name)) {
             return $name;
         } else {
-            $property_names = array_keys($this->array);
+            $property_names = array_keys($this->getDataArray());
             foreach ($property_names as $property_name) {
                 if (strcasecmp($name, $property_name) === 0){
                     return $property_name;
@@ -140,7 +171,7 @@ class UxonObject implements \IteratorAggregate
      */
     public function search($value)
     {
-        return array_search($value, $this->array);
+        return array_search($value, $this->getDataArray());
     }
 
     /**
@@ -151,7 +182,7 @@ class UxonObject implements \IteratorAggregate
     public function getPropertiesAll()
     {
         $array = [];
-        foreach ($this->array as $var => $val){
+        foreach ($this->getDataArray() as $var => $val){
             $array[$var] = $this->getProperty($var);
         }
         return $array;
@@ -167,7 +198,7 @@ class UxonObject implements \IteratorAggregate
      */
     public function setProperty($property_name, $scalar_or_uxon)
     {
-        $this->array[$property_name] = $this->sanitizePropertyValue($scalar_or_uxon);
+        $this->getDataArray()[$property_name] = $this->sanitizePropertyValue($scalar_or_uxon);
         return $this;
     }
     
@@ -185,24 +216,24 @@ class UxonObject implements \IteratorAggregate
      */
     public function appendToProperty($property_name, $scalar_or_uxon)
     {
-        if (! array_key_exists($property_name, $this->array)){
-            $this->array[$property_name] = [];
-        } elseif (is_scalar($this->array[$property_name])){
+        if (! array_key_exists($property_name, $this->getDataArray())){
+            $this->getDataArray()[$property_name] = [];
+        } elseif (is_scalar($this->getDataArray()[$property_name])){
             throw new UxonParserError($this, 'Cannot append "' . $scalar_or_uxon . '" to UXON property "' . $property_name . '": the property is a of a scalar type!');
         }
-        $this->array[$property_name][] = $this->sanitizePropertyValue($scalar_or_uxon);
+        $this->getDataArray()[$property_name][] = $this->sanitizePropertyValue($scalar_or_uxon);
         return $this;
     }
     
     public function append($scalar_or_uxon)
     {
-        $this->array[] = $this->sanitizePropertyValue($scalar_or_uxon);
+        $this->getDataArray()[] = $this->sanitizePropertyValue($scalar_or_uxon);
         return $this;
     }
     
     public function countProperties()
     {
-        return count($this->array);
+        return count($this->getDataArray());
     }
 
     /**
@@ -215,8 +246,9 @@ class UxonObject implements \IteratorAggregate
      */
     public function extend(UxonObject $extend_by_uxon)
     {
-        // before new UxonObject: return self::fromStdClass((object) array_merge((array) $this, (array) $extend_by_uxon));
-        return new self(array_replace_recursive($this->array, $extend_by_uxon->toArray()));
+        $this_array = $this->getDataArray();
+        $extension =  $extend_by_uxon->toArray();
+        return new self(array_replace_recursive($this_array, $extension));
     }
 
     /**
@@ -228,7 +260,11 @@ class UxonObject implements \IteratorAggregate
      */
     public function copy()
     {
-        return new self($this->array);
+        if (is_null($this->array)){
+            return new self($this->json_string);
+        }
+        
+        return new self($this->getDataArray());
     }
 
     /**
@@ -250,13 +286,13 @@ class UxonObject implements \IteratorAggregate
      */
     public function unsetProperty($name)
     {
-        unset($this->array[$name]);
+        unset($this->getDataArray()[$name]);
         return $this;
     }
 
     public function toArray()
     {
-        return $this->array;
+        return $this->getDataArray();
     }
 
     /**
@@ -275,7 +311,7 @@ class UxonObject implements \IteratorAggregate
             throw new UxonMapError($this, 'Cannot import UXON configuration to "' . gettype($target_class_instance) . '": only instantiated PHP classes supported!');
         }
         
-        foreach (array_keys($this->array) as $var) {
+        foreach (array_keys($this->getDataArray()) as $var) {
             $setterCamelCased = 'set' . StringDataType::convertCaseUnderscoreToPascal($var);
             if (method_exists($target_class_instance, $setterCamelCased)) {
                 call_user_func(array(
@@ -300,14 +336,14 @@ class UxonObject implements \IteratorAggregate
             return true;
         }
         
-        foreach (array_keys($this->array) as $key){
+        foreach (array_keys($this->getDataArray()) as $key){
             if (!is_numeric($key)){
                 return false;
             }
         }
         
         if ($ignore_gaps_in_keys == false){
-            return array_keys($this->array) === range(0, count($this->array) - 1);
+            return array_keys($this->getDataArray()) === range(0, count($this->getDataArray()) - 1);
         }
         
         return true;
