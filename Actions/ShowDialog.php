@@ -151,7 +151,7 @@ class ShowDialog extends ShowWidget implements iShowDialog
         
         $this->getResult()->setLazyLoading(false);
         if ($this->getIncludeHeaders()) {
-            $code = $this->getTemplate()->drawHeaders($this->getResult());
+            $code = $this->getTemplate()->drawHeaders($this->getResult(), false);
         }
         $code .= parent::getResultOutput();
         

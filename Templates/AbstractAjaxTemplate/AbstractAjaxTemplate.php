@@ -129,11 +129,16 @@ abstract class AbstractAjaxTemplate extends AbstractTemplate
      *
      * @return string
      */
-    public function drawHeaders(\exface\Core\Widgets\AbstractWidget $widget)
+    public function drawHeaders(\exface\Core\Widgets\AbstractWidget $widget, $include_global_headers = true)
     {
         try {
             $instance = $this->getElement($widget);
-            $result = implode("\n", array_unique($instance->generateHeaders()));
+            if ($include_global_headers) {
+                $header_array = array_merge($this->generateTemplateHeaders(), $instance->generateHeaders());
+            } else {
+                $header_array = $instance->generateHeaders();
+            }
+            $result = implode("\n", array_unique($header_array));
         } catch (ErrorExceptionInterface $e) {
             // TODO Is there a way to display errors in the header nicely?
             /*
@@ -143,7 +148,17 @@ abstract class AbstractAjaxTemplate extends AbstractTemplate
              */
             throw $e;
         }
-        return $result;
+        return "<!-- Template specific includes -->\n" . $result;
+    }
+    
+    /**
+     * Returns an array with general headers needed for the template to work.
+     * 
+     * @return array
+     */
+    protected function generateTemplateHeaders()
+    {
+        return [];
     }
 
     /**
@@ -532,7 +547,7 @@ abstract class AbstractAjaxTemplate extends AbstractTemplate
                     }
                 }
             }
-            $output = $this->drawHeaders($debug_widget) . "\n" . $this->draw($debug_widget);
+            $output = $this->drawHeaders($debug_widget, false) . "\n" . $this->draw($debug_widget);
         } catch (\Throwable $e) {
             // If anything goes wrong when trying to prettify the original error, drop prettifying
             // and throw the original exception wrapped in a notice about the failed prettification
@@ -782,6 +797,11 @@ abstract class AbstractAjaxTemplate extends AbstractTemplate
             $this->getWorkbench()->getLogger()->logException($e);
         }
         return $extra;
+    }
+    
+    public function getUrlOfVendorFolder()
+    {
+        return $this->getWorkbench()->getCMS()->getWorkbenchUrl() . '/vendor';
     }
 }
 ?>

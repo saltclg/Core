@@ -136,5 +136,12 @@ interface CmsConnectorInterface extends ExfaceClassInterface
      * @return string
      */
     public function getSiteUrl();
+
+    /**
+     * Returns the full URL of the root of the Workbench installation folder: e.g. https://www.exface.com/demo/exface
+     * 
+     * @return string
+     */
+    public function getWorkbenchUrl();
 }
 ?>
