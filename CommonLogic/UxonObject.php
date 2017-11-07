@@ -39,7 +39,7 @@ class UxonObject implements \IteratorAggregate
     public function toJson($prettify = false)
     {
         $options = $prettify ? JSON_PRETTY_PRINT : null;
-        return json_encode($this->toArray(), $options);
+        return json_encode($this->toArray(), $options | JSON_UNESCAPED_SLASHES);
     }
 
     /**
