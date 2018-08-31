@@ -46,6 +46,8 @@ class ChartSeries extends AbstractWidget implements iHaveColor
     private $axis_y_number = null;
 
     private $axis_y = null;
+    
+    private $split_by_column_id = null;
 
     /**
      *
@@ -278,6 +280,56 @@ class ChartSeries extends AbstractWidget implements iHaveColor
     {
         $this->color = $color;
         return $this;
+    }
+
+    /**
+     * 
+     * @throws WidgetConfigurationError
+     * @return DataColumn
+     */
+    public function getSplitColumn() : DataColumn
+    {
+        $data = $this->getChart()->getData();
+        if (! $result = $data->getColumn($this->getDataColumnId())) {
+            $result = $data->getColumnByAttributeAlias($this->getDataColumnId());
+            if (! $result) {
+                throw new WidgetConfigurationError($this, 'Column "' . $this->getDataColumnId() . '" required for series ' . $this->getSeriesNumber() . ' not found in chart data!', '6XUZ9ZE');
+            }
+        }
+        return $result;
+    }
+    
+    /**
+     * 
+     * @return string|NULL
+     */
+    public function getSplitColumnId() : ?string
+    {
+        return $this->split_by_column_id;
+    }
+    
+    /**
+     * Produces a series for every value within the specified column.
+     * 
+     * @uxon-property split_by_column_id
+     * @uxon-type string
+     * 
+     * @param string $columnIdOrAttributeAlias
+     * @return ChartSeries
+     */
+    public function setSplitByColumnId(string $columnIdOrAttributeAlias) : ChartSeries
+    {
+        $this->split_by_column_id = $columnIdOrAttributeAlias;
+        return $this;
+    }
+    
+    /**
+     * 
+     * @return bool
+     */
+    public function isSplit() : bool
+    {
+        return $this->split_by_column_id !== null;
     }
 
 }

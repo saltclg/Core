@@ -105,6 +105,13 @@ JS;
             
             if ($series->getChartType() == ChartSeries::CHART_TYPE_PIE) {
                 $series_data = $series_id . '[i] = { label: ' . $js_rows . '[i]["' . $x_column->getDataColumnName() . '"], data: ' . $js_rows . '[i]["' . $series_column->getDataColumnName() . '"] }';
+            } elseif ($series->isSplit() === true) {
+                $series_data_prepare = <<<JS
+
+                            splits[{$series->getSplitByColumn()->getDataColumnName()}]
+
+JS;
+                $series_data = $series_id . '[i] = { label: ' . $js_rows . '[i]["' . $x_column->getDataColumnName() . '"], data: ' . $js_rows . '[i]["' . $series_column->getDataColumnName() . '"] }';
             } else {
                 // Prepare the code to transform the ajax data to flot data. It will later run in a for loop.
                 switch ($series->getChartType()) {
@@ -116,8 +123,9 @@ JS;
                         $data_key = $x_column->getDataColumnName();
                         $data_value = $series_column->getDataColumnName();
                 }
+                $key_value_pair = '[ (' . $js_rows . '[i]["' . $data_key . '"]' . ($series->getAxisX()->getAxisType() == 'time' ? '*1000' : '') . '), ' . $js_rows . '[i]["' . $data_value . '"] ]';
                 $series_data .= '
-							' . $series_id . '[i] = [ (' . $js_rows . '[i]["' . $data_key . '"]' . ($series->getAxisX()->getAxisType() == 'time' ? '*1000' : '') . '), ' . $js_rows . '[i]["' . $data_value . '"] ];';
+							' . $series_id . '[i] = ' . $key_value_pair . ';';
             }
         }
         
@@ -137,10 +145,11 @@ JS;
         
         // Plot flot :)
         $output .= '
+                    ' . $series_data_prepare . '
 					for (var i=0; i < ' . $js_rows . '.length; i++){
 						' . $series_data . '
 					}
-						    
+				    console.log(' . $series_id . ');    
 					$.plot("#' . $this->getId() . '",
 						' . $this->buildJsSeriesData() . ',
 						{
@@ -215,14 +224,13 @@ JS;
                     throw new TemplateUnsupportedWidgetPropertyWarning('The template "' . $this->getTemplate()->getAlias() . '" does not support pie charts with multiple series!');
                 }
                 $series_options = $this->buildJsSeriesOptions($series);
-                $output .= ',
-								{
-									data: ' . $this->sanitizeSeriesId($series->getId()) . ($series->getChartType() == ChartSeries::CHART_TYPE_BARS ? '.reverse()' : '') . '
-									, label: "' . $series->getCaption() . '"
-									, yaxis:' . $series->getAxisY()->getNumber() . '
-									, xaxis:' . $series->getAxisX()->getNumber() . '
-									' . ($series_options ? ', ' . $series_options : '') . '
-								}';
+                $output .= ', {
+							data: ' . $this->sanitizeSeriesId($series->getId()) . ($series->getChartType() == ChartSeries::CHART_TYPE_BARS ? '.reverse()' : '') . '
+							, label: "' . $series->getCaption() . '"
+							, yaxis:' . $series->getAxisY()->getNumber() . '
+							, xaxis:' . $series->getAxisX()->getNumber() . '
+							' . ($series_options ? ', ' . $series_options : '') . '
+					   }';
             }
             $output = '[' . substr($output, 2) . ']';
         }
@@ -297,42 +305,38 @@ JS;
         switch ($series->getChartType()) {
             case ChartSeries::CHART_TYPE_LINE:
             case ChartSeries::CHART_TYPE_AREA:
-                $options = 'lines:
-								{
-									show: true
-									' . ($series->getChartType() == ChartSeries::CHART_TYPE_AREA ? ', fill: true' : '') . '
-                                }
-                            ' . ($color ? ', color: "' . $color . '"' : '') . '';
+                $options = 'lines: {
+								show: true
+								' . ($series->getChartType() == ChartSeries::CHART_TYPE_AREA ? ', fill: true' : '') . '
+                            }
+                        ' . ($color ? ', color: "' . $color . '"' : '') . '';
                 break;
             case ChartSeries::CHART_TYPE_BARS:
             case ChartSeries::CHART_TYPE_COLUMNS:
-                $options = 'bars:
-								{
-									show: true
-                                    , lineWidth: 0
-									, align: "center"
-                                    ';
+                $options = 'bars: {
+								show: true
+                                , lineWidth: 0
+								, align: "center"
+                                ';
                 if (! $series->getChart()->getStackSeries() && count($series->getChart()->getSeriesByChartType($series->getChartType())) > 1) {
                     $options .= '
-                                    , barWidth: 0.2
-                                    , order: ' . $series->getSeriesNumber();
+                                , barWidth: ' . ($series->getAxisX()->getAxisType() == ChartAxis::AXIS_TYPE_TIME || $series->getAxisY()->getAxisType() == ChartAxis::AXIS_TYPE_TIME ? '24*60*60*1000*0.2' : '0.2' ) . '
+                                , order: ' . $series->getSeriesNumber();
+                } elseif ($series->getAxisX()->getAxisType() == ChartAxis::AXIS_TYPE_TIME || $series->getAxisY()->getAxisType() == ChartAxis::AXIS_TYPE_TIME) {
+                    $options .= '
+							    , barWidth: 24*60*60*1000*0.8';
                 } else {
                     $options .= '
-                                    , barWidth: 0.8';
-                }
-                
-                if ($series->getAxisX()->getAxisType() == ChartAxis::AXIS_TYPE_TIME || $series->getAxisY()->getAxisType() == ChartAxis::AXIS_TYPE_TIME) {
-                    $options .= '
-									, barWidth: 24*60*60*1000*0.8';
+                                , barWidth: 0.8';
                 }
                 
                 if ($series->getChartType() == ChartSeries::CHART_TYPE_BARS) {
                     $options .= '
-									, horizontal: true';
+								, horizontal: true';
                 }
                 
                 $options .= '
-								}
+							}
                             ' . ($color ? ', color: "' . $color . '"' : '') . '';
                 break;
             case ChartSeries::CHART_TYPE_PIE:
