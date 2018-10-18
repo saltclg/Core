@@ -387,7 +387,9 @@ class Relation implements MetaRelationInterface
             }
         } catch (\exface\Core\Exceptions\Model\MetaRelationNotFoundError $e) {
             return false;
-        }
+        } catch (\exface\Core\Exceptions\Model\MetaRelationAliasAmbiguousError $e) {
+            return true;
+        } 
         
         return false;
     }

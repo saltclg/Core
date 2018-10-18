@@ -311,8 +311,8 @@ class DataColumnGroup extends AbstractWidget implements iHaveColumns
         // This preset caption will get overwritten by one specified in UXON once the UXON object is overloaded
         if (! $uxon->hasProperty('caption') && $this->getMetaObject()->hasAttribute($uxon->getProperty('attribute_alias'))) {
             $attr = $this->getMetaObject()->getAttribute($uxon->getProperty('attribute_alias'));
-            if ($attr->isLabelForObject() && $attr->getRelationPath()->toString()) {
-                $caption = $this->getMetaObject()->getRelation($attr->getRelationPath()->toString())->getName();
+            if ($attr->isLabelForObject() && ! $attr->getRelationPath()->isEmpty()) {
+                $caption = $attr->getRelationPath()->getRelationLast()->getName();
             } else {
                 $caption = $attr->getName();
             }
