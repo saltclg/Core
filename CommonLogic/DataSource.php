@@ -5,11 +5,13 @@ use exface\Core\Interfaces\DataSources\DataSourceInterface;
 use exface\Core\CommonLogic\Model\Model;
 use exface\Core\DataTypes\UxonDataType;
 use exface\Core\DataTypes\BooleanDataType;
+use exface\Core\Interfaces\WorkbenchInterface;
+use exface\Core\Interfaces\AppInterface;
 
 class DataSource implements DataSourceInterface
 {
 
-    private $model;
+    private $app;
 
     private $data_connector;
 
@@ -26,26 +28,20 @@ class DataSource implements DataSourceInterface
     private $readable = true;
     
     private $writable = true;
-
-    function __construct(Model $model)
+    
+    private $workbench = null;
+    
+    function __construct(AppInterface $app, string $id, string $alias, string $name)
     {
-        $this->model = $model;
-    }
-
-    /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\Core\Interfaces\DataSources\DataSourceInterface::getModel()
-     */
-    public function getModel()
-    {
-        return $this->model;
+        $this->data_source_id = $id;
+        $this->data_source_name = $name;
+        $this->app = $app;
+        $this->workbench = $app->getWorkbench();
     }
 
     public function getWorkbench()
     {
-        return $this->getModel()->getWorkbench();
+        return $this->workbench;
     }
 
     /**

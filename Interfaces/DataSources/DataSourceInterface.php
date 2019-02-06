@@ -5,6 +5,8 @@ use exface\Core\CommonLogic\Workbench;
 use exface\Core\CommonLogic\Model\Model;
 use exface\Core\Interfaces\WorkbenchDependantInterface;
 use exface\Core\CommonLogic\UxonObject;
+use exface\Core\Interfaces\QueryBuilderInterface;
+use exface\Core\Interfaces\DataSheets\DataSheetInterface;
 
 interface DataSourceInterface extends WorkbenchDependantInterface
 {
@@ -13,69 +15,27 @@ interface DataSourceInterface extends WorkbenchDependantInterface
      *
      * @return DataConnectionInterface
      */
-    public function getConnection();
+    public function getConnection() : DataConnectionInterface;
+    
+    public function setConnection(DataConnectionInterface $connection) : DataSourceInterface;
 
     /**
      *
      * @return string
      */
-    public function getId();
-
-    /**
-     *
-     * @param string $value            
-     */
-    public function setId($value);
+    public function getId() : string;
 
     /**
      *
      * @return string
      */
-    public function getDataConnectorAlias();
+    public function getQueryBuilder() : QueryBuilderInterface;
 
     /**
      *
      * @param string $value            
      */
-    public function setDataConnectorAlias($value);
-
-    /**
-     *
-     * @return string
-     */
-    public function getConnectionId();
-
-    /**
-     *
-     * @param string $value            
-     */
-    public function setConnectionId($value);
-
-    /**
-     *
-     * @return string
-     */
-    public function getQueryBuilderAlias();
-
-    /**
-     *
-     * @param string $value            
-     */
-    public function setQueryBuilderAlias($value);
-
-    /**
-     * Returns a UXON object with configuration options for this connections (e.g.
-     * [user => user_value, password => password_value, ...]
-     *
-     * @return UxonObject
-     */
-    public function getConnectionConfig();
-
-    /**
-     *
-     * @param UxonObject $value            
-     */
-    public function setConnectionConfig(UxonObject $value);
+    public function setQueryBuilder(QueryBuilderInterface $qb) : DataSourceInterface;
 
     /**
      * Returns TRUE if write-opertaions are allowed on the data source with it's 
@@ -109,22 +69,19 @@ interface DataSourceInterface extends WorkbenchDependantInterface
     public function setReadable($true_or_false);
 
     /**
-     *
-     * @return Model
-     */
-    public function getModel();
-    
-    /**
-     * 
-     * @param string $readableName
-     * @return DataSourceInterface
-     */
-    public function setName(string $readableName) : DataSourceInterface;
-    
-    /**
      * 
      * @return string
      */
     public function getName() : string;
+    
+    public function read(DataSheetInterface &$dataSheet);
+    
+    public function count(DataSheetInterface &$dataSheet, DataTransactionInterface $transaction) : int;
+    
+    public function create(DataSheetInterface &$dataSheet, DataTransactionInterface $transaction);
+    
+    public function update(DataSheetInterface &$dataSheet, DataTransactionInterface $transaction);
+    
+    public function delete(DataSheetInterface &$dataSheet, DataTransactionInterface $transaction);
 }
 ?>
