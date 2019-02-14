@@ -86,7 +86,7 @@ class InputUxon extends InputJson
      * `\exface\Core\Widgets\AbstractWidget` for the widget schema).
      * 
      * @uxon-property root_entity
-     * @uxon-type string
+     * @uxon-type string|\exface\Core\CommonLogic\WidgetLink
      * 
      * @param string $value
      * @return InputUxon
@@ -113,7 +113,7 @@ class InputUxon extends InputJson
      * property.
      * 
      * @uxon-property root_object_alias
-     * @uxon-type metamodel:object
+     * @uxon-type metamodel:object|\exface\Core\CommonLogic\WidgetLink
      * 
      * @param string $value
      * @return InputUxon

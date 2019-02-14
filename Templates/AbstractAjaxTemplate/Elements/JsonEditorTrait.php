@@ -64,7 +64,7 @@ JS;
                        		   } else {
                                     editor._autosuggestPending = true;
                                     var uxon = JSON.stringify(editor.get());
-                                    return {$this->buildJsFunctionPrefix()}_fetchAutosuggest('{$widget->getSchema()}', text, path, input, uxon, resolve, reject)
+                                    return {$this->buildJsFunctionPrefix()}_fetchAutosuggest('{$widget->getSchema()}', text, path, input, uxon, resolve, reject, {$this->buildJsRootEntityClassGetter()})
                            			.then(json => {
                    				         if (json !== undefined) {
                            					editor._autosuggestPending = false;
@@ -102,14 +102,16 @@ JS;
         
         return <<<JS
 
-    function {$this->buildJsFunctionPrefix()}_fetchAutosuggest(schema, text, path, input, uxon, resolve, reject) {
+    function {$this->buildJsFunctionPrefix()}_fetchAutosuggest(schema, text, path, input, uxon, resolve, reject, rootEntityClass, rootObjectAlias) {
         var formData = new URLSearchParams({
     		action: 'exface.Core.UxonAutosuggest',
     		text: text,
     		path: JSON.stringify(path),
     		input: input,
     		schema: schema,
-    		uxon: uxon
+    		uxon: uxon,
+            rootEntityClass: (rootEntityClass == undefined ? '' : rootEntityClass),
+            rootObjectAlias: (rootObjectAlias == undefined ? '' : rootObjectAlias)
     	});
     	return fetch('{$this->getAjaxUrl()}', {
     		method: "POST",
@@ -245,5 +247,26 @@ JS;
             }
         }
         return '';
+    }
+    
+    protected function buildJsRootEntityClassGetter() : string
+    {
+        $widget = $this->getWidget();
+        if (($widget instanceof InputUxon) === false) {
+            return '""';
+        }
+        
+        $expr = $widget->getRootEntity();
+        if ($expr === null) {
+            return '""';
+        }
+        
+        if ($expr->isReference()) {
+            $link = $expr->getWidgetLink($widget);
+            $elem = $this->getTemplate()->getElement($link->getTargetWidget());
+            return $elem->buildJsValueGetter($link->getTargetColumnId());
+        }
+            
+        return '"' . $expr->__toString() . '"';
     }
 }
